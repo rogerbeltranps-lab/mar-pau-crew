@@ -1,6 +1,6 @@
 # Mar & Pau’s Crew
 
-Agenda compartida per a Roger i l’Ana: calendari, horaris de matí i tarda, disponibilitat, assistència real, notes i pagaments. Dissenyada per al mòbil. El codi és públic; les dades familiars es guarden a Firestore amb accés autenticat.
+Agenda compartida per a Roger i l’Ana: calendari, horaris de matí i tarda, disponibilitat,  notes i pagaments. Dissenyada per al mòbil. El codi és públic; les dades familiars es guarden a Firestore amb accés autenticat.
 
 ## Activació inicial
 
@@ -15,9 +15,9 @@ Agenda compartida per a Roger i l’Ana: calendari, horaris de matí i tarda, di
 
 ## Ús
 
-- Toca un dia per ajustar horaris, indicar que no cal venir o registrar assistència real. Per canviar a entrada més tard, canvia l’hora d’entrada.
-- Els comptes de gestió poden editar la planificació, la tarifa, les notes de Roger i l’assistència real. L’Ana pot confirmar disponibilitat, avisar que no pot venir i escriure el seu missatge. Els permisos s’apliquen a la base de dades, no només als botons.
-- Confirmar que vindrà és opcional i no genera cap import. Només l’assistència real marcada Sí genera hores a cobrar.
+- Toca un dia per ajustar l’entrada i la sortida o indicar que no cal venir. Els imports es recalculen amb aquestes hores. La icona 💶 al calendari indica que l’import del dia està completament pagat; si l’horari canvia i queda saldo pendent, desapareix. Per canviar a entrada més tard, canvia l’hora d’entrada.
+- Els comptes de gestió poden editar la planificació, la tarifa, les notes de Roger i els horaris registrats. L’Ana pot confirmar disponibilitat, avisar que no pot venir i escriure el seu missatge. Els permisos s’apliquen a la base de dades, no només als botons.
+- Confirmar que vindrà és opcional i no genera cap import. Només els horaris registrats marcada Sí genera hores a cobrar.
 - Els pagaments es registren per dia, amb import i data; s’accepten pagaments parcials. El registre importat conserva els imports distribuïts per dia del full, encara que el pagament original fos conjunt. A Comptes, el formulari «Pagament dels divendres» permet registrar un pagament conjunt d’un període. Proposa la setmana de l’últim divendres i permet canviar les dates. Distribueix l’import entre els dies pendents, començant pel més antic, en una única transacció. La llista de pagaments els agrupa per operació; els importats s’agrupen per data original.
 - El saldo és hores realitzades × tarifa menys pagaments. Si es corregeix després una assistència o tarifa i apareix un saldo negatiu, indica diners pagats de més; es mostra sense amagar-lo.
 - Cada canvi confirmat es comparteix amb la resta de sessions obertes. Cal connexió per desar. Tancar el formulari sense desar descarta els canvis del formulari. No hi ha avisos push ni missatges automàtics.
