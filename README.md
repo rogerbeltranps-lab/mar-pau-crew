@@ -29,3 +29,7 @@ Agenda compartida per a Roger i l’Ana: calendari, horaris de matí i tarda, di
 Executa `node tests.mjs`. Les proves cobreixen conversió de dates Excel, torns separats, càlcul d’hores, pagaments parcials i preservació de les dades d’importació. El lector d’Excel utilitza XML i fflate 0.8.2, carregat des de jsDelivr; Firebase SDK web 12.19.0 es carrega des de gstatic. No cal cap compilació.
 
 Abans de considerar-la activa, comprova amb els dos comptes que l’Ana veu un canvi de Roger, que pot confirmar disponibilitat i que no pot modificar pagaments. La connexió real i les regles requereixen el projecte Firebase configurat.
+
+## Informació per a Ana i full compartit
+
+La secció privada Info Ana incorpora les cinc seccions de la pestanya Información en importar l’Excel. Requereix publicar les regles actualitzades de `firestore.rules`. Per actualitzar automàticament els pagaments de l’app al full Google Sheets i les instruccions del full a l’app, segueix [SYNC.md](SYNC.md). La connexió queda pendent d’instal·lar i autoritzar el script al teu compte.

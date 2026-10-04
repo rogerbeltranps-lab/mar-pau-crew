@@ -29,6 +29,16 @@ service cloud.firestore {
    allow read: if request.auth != null && request.auth.uid == uid;
    allow write: if false;
   }
+  match /information/{id} {
+   allow read: if owner() || anna();
+   allow create, update: if owner() && id == 'ana'
+    && request.resource.data.title is string
+    && request.resource.data.sections is list
+    && request.resource.data.sections.size() <= 20
+    && request.resource.data.updatedBy == request.auth.uid
+    && request.resource.data.updatedAt == request.time;
+   allow delete: if false;
+  }
   match /days/{date} {
    allow read: if owner() || anna();
    allow create: if owner() && validDay(date);
