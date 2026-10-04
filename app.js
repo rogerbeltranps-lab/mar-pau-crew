@@ -33,7 +33,8 @@ function renderClosures(){
 }
 async function closePeriod(){await busy(async()=>{
  if(role!=='owner')throw Error('Cal un compte de gestió.');
- const from=$('closure-from').value,to=$('closure-to').value,reason=$('closure-reason').value.trim()||'No cal venir';
+ const from=$('closure-from').value,to=$('closure-to').value,reason=$('closure-reason').value==='other'?$('closure-custom').value.trim():$('closure-reason').value;
+ if(!reason)throw Error('Escriu el motiu o selecciona «No cal venir».');
  if(reason.length>120)throw Error('Escriu un motiu més curt.');
  const dates=periodDates(from,to),uid=user.uid,closure={id:crypto.randomUUID(),from,to,reason};let count=0;
  await api.runTransaction(db,async tx=>{
@@ -181,3 +182,5 @@ let config=firebaseConfig;try{config ||=JSON.parse(localStorage.getItem('crew-fi
 $('closure-from').value=localDate();$('closure-to').value=localDate();$('closure-form').onsubmit=e=>{e.preventDefault();closePeriod();};
 
 $('closure-from').onchange=()=>{if(!$('closure-to').value||$('closure-to').value<$('closure-from').value)$('closure-to').value=$('closure-from').value;};
+
+$('closure-reason').onchange=()=>{const other=$('closure-reason').value==='other';$('closure-custom-label').hidden=!other;$('closure-custom').required=other;if(other)$('closure-custom').focus();};
