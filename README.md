@@ -1,2 +1,31 @@
-# mar-pau-crew
-App per gestionar el calendari, els horaris, l’assistència i els pagaments de la cangur de Mar i Pau.
+# Mar & Pau’s Crew
+
+Agenda compartida per a Roger i l’Anna: calendari, horaris de matí i tarda, disponibilitat, assistència real, notes i pagaments. Dissenyada per al mòbil. El codi és públic; les dades familiars es guarden a Firestore amb accés autenticat.
+
+## Activació inicial
+
+1. A GitHub, obre **Settings → Pages**. A **Build and deployment**, selecciona **Deploy from a branch**, **main** i **/(root)**. Desa. GitHub mostrarà l’enllaç quan la publicació acabi.
+2. Obre [Firebase Console](https://console.firebase.google.com/). Crea un projecte i registra una aplicació **Web**. No cal activar Analytics. Copia la configuració `firebaseConfig`.
+3. A **Authentication → Sign-in method**, activa **Email/Password**. A **Users**, crea dos comptes amb contrasenyes diferents: Roger i Anna. Les contrasenyes no es guarden al repositori. Copia el **UID** de cadascun. Es poden canviar amb el botó de recuperació de contrasenya.
+4. A **Firestore Database**, crea la base de dades en mode producció (una ubicació europea). A **Rules**, copia íntegrament `firestore.rules` i publica les regles. No utilitzis regles obertes de prova.
+5. A **Data**, crea la col·lecció `members`. Crea un document amb ID igual al UID de Roger i un camp de tipus string `role` amb valor `owner`. Crea un altre document amb ID igual al UID de l’Anna i `role` amb valor `anna`. Només aquests membres tindran accés; des de l’app no es poden donar permisos.
+6. A **Authentication → Settings → Authorized domains**, afegeix el domini que GitHub mostri per a la web.
+7. Per configurar-ho per a tots els dispositius, substitueix `null` a `firebase-config.js` per l’objecte de configuració web de Firebase (amb camps `apiKey`, `authDomain`, `projectId`, `appId`, etc.). Aquesta configuració identifica l’app; els permisos els imposen Authentication i les regles. No publiquis credencials de servei ni contrasenyes. Com a alternativa, enganxa la configuració en format JSON a la pantalla inicial de cada dispositiu.
+8. Entra com a Roger, ves a **Gestió** i selecciona l’Excel original `Control_canguro_curso_2026-2027.xlsx`. Revisa el resum i prem **Incorporar dies nous**. En el fitxer adjunt s’esperen 12 dies amb assistència, 19,25 hores i 192,50 € pagats. La importació manté les marques Sí/No, horaris, pagaments, dates, notes i valors originals dins de `source`. Cap dia existent es sobreescriu: si s’interromp, torna a importar per incorporar només els dies que faltin.
+
+## Ús
+
+- Toca un dia per ajustar horaris, indicar que no cal venir o registrar assistència real. Per canviar a entrada més tard, canvia l’hora d’entrada.
+- Roger pot editar la planificació, la tarifa, les notes de Roger i l’assistència real. L’Anna pot confirmar disponibilitat, avisar que no pot venir i escriure el seu missatge. Els permisos s’apliquen a la base de dades, no només als botons.
+- Confirmar que vindrà no genera cap import. Només l’assistència real marcada Sí genera hores a cobrar.
+- Els pagaments es registren per dia, amb import i data; s’accepten pagaments parcials. El registre importat conserva els imports distribuïts per dia del full, encara que el pagament original fos conjunt. L’app encara no ofereix un pagament conjunt per a diversos dies.
+- El saldo és hores realitzades × tarifa menys pagaments. Si es corregeix després una assistència o tarifa i apareix un saldo negatiu, indica diners pagats de més; es mostra sense amagar-lo.
+- Cada canvi confirmat es comparteix amb la resta de sessions obertes. Cal connexió per desar. Tancar el formulari sense desar descarta els canvis del formulari. No hi ha avisos push ni missatges automàtics.
+- A **Gestió**, descarrega una còpia privada JSON. No pugis l’Excel ni la còpia JSON al repositori públic.
+- Pots afegir l’enllaç a la pantalla d’inici del mòbil des del navegador.
+
+## Comprovacions
+
+Executa `node tests.mjs`. Les proves cobreixen conversió de dates Excel, torns separats, càlcul d’hores, pagaments parcials i preservació de les dades d’importació. El lector d’Excel utilitza XML i fflate 0.8.2, carregat des de jsDelivr; Firebase SDK web 12.19.0 es carrega des de gstatic. No cal cap compilació.
+
+Abans de considerar-la activa, comprova amb els dos comptes que l’Anna veu un canvi de Roger, que pot confirmar disponibilitat i que no pot modificar pagaments. La connexió real i les regles requereixen el projecte Firebase configurat.

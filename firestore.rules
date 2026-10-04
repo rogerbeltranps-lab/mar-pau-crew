@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function member() { return request.auth != null && exists(/databases/$(database)/documents/members/$(request.auth.uid)); }
+  function owner() { return member() && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'owner'; }
+  function anna() { return member() && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'anna'; }
+  function sameTurn(a, b) {
+   return a.id == b.id && a.start == b.start && a.end == b.end && a.attendance == b.attendance
+    && b.keys().hasOnly(['id','start','end','status','attendance','confirmation'])
+    && b.confirmation in ['pending','yes','no']
+    && ((a.status == 'not-needed' && b == a)
+     || (a.status != 'not-needed' && b.status in ['planned','unavailable']
+      && (b.status == a.status || (b.status == 'unavailable' && b.confirmation == 'no') || (a.status == 'unavailable' && b.status == 'planned'))));
+  }
+  function annaTurns(a,b) {
+   return a.size() == b.size() && a.size() <= 2
+    && (a.size() == 0 || sameTurn(a[0],b[0]))
+    && (a.size() < 2 || sameTurn(a[1],b[1]));
+  }
+  function validDay(date) {
+   let d = request.resource.data;
+   return d.date == date && d.rate is number && d.rate >= 0 && d.rate <= 1000
+    && d.paid is number && d.paid >= 0 && d.turns is list && d.turns.size() <= 2
+    && d.payments is list && d.notes is string && d.notes.size() <= 4000
+    && d.annaNotes is string && d.annaNotes.size() <= 4000
+    && d.updatedBy == request.auth.uid && d.updatedAt == request.time;
+  }
+  match /members/{uid} {
+   allow read: if request.auth != null && request.auth.uid == uid;
+   allow write: if false;
+  }
+  match /days/{date} {
+   allow read: if owner() || anna();
+   allow create: if owner() && validDay(date);
+   allow update: if validDay(date) && (owner() || (anna()
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['annaNotes','turns','updatedAt','updatedBy'])
+    && annaTurns(resource.data.turns, request.resource.data.turns)));
+   allow delete: if false;
+  }
+ }
+}
