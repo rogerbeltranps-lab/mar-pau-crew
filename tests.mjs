@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment,isAgendaDay} from './domain.mjs';
+import {excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault} from './domain.mjs';
 assert.equal(excelDate('46279.0'),'2026-09-14');
 assert.equal(excelDate('19/09/2026'),'2026-09-19');
 assert.equal(excelDate('46063.0'),'2026-02-10');
@@ -33,3 +33,13 @@ assert.equal(isAgendaDay({role:'anna'},'test-user-uid'),false);
 assert.equal(isAgendaDay(defaultDay('2026-10-05'),'2026-10-05'),true);
 assert.equal(isAgendaDay(defaultDay('2026-10-05'),'test-user-uid'),false);
 console.log('Documents de permisos fora del calendari: OK');
+
+const defaults=missingDefaultDays(['2026-10-05','2026-10-06'],'2026-10-05','2026-10-11');
+assert.deepEqual(defaults.map(d=>d.date),['2026-10-07','2026-10-08','2026-10-09']);
+assert.equal(defaults[0].turns[0].start,'16:30');assert.equal(defaults[0].automatic,true);
+assert.equal(untouchedDefault(defaults[0]),true);
+const edited=structuredClone(defaults[0]);edited.automatic=false;assert.equal(untouchedDefault(edited),false);
+const reply=structuredClone(defaults[0]);reply.turns[0].confirmation='no';assert.equal(untouchedDefault(reply),false);
+const paid=structuredClone(defaults[0]);paid.paid=5;assert.equal(untouchedDefault(paid),false);
+assert.deepEqual(missingDefaultDays([],'2027-06-23','2027-06-22'),[]);
+console.log('Horari automàtic: dies existents, caps de setmana i canvis preservats OK');

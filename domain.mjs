@@ -23,3 +23,17 @@ export function allocatePayment(records,amount){
 }
 export function defaultDay(date){const dow=new Date(date+'T12:00:00').getDay();const schedule={1:[['morning','07:45','09:00']],2:[['morning','08:00','09:00'],['afternoon','17:15','19:15']],3:[['afternoon','16:30','18:30']],4:[['morning','08:00','09:00']],5:[['morning','07:45','09:00']]};return {date,rate:10,paid:0,payments:[],notes:'',annaNotes:'',turns:(schedule[dow]||[]).map(([id,start,end])=>({id,start,end,status:'planned',attendance:'pending',confirmation:'pending'}))};}
 export function importRows(rows){return rows.filter(r=>/^\d+(\.\d+)?$/.test(r.A||'')).map(r=>{const day={date:excelDate(r.A),rate:Number(r.M)||10,paid:cents(r.O),payments:[],notes:r.R||'',annaNotes:'',source:{...r},turns:[]};for(const [id,flag,start,end] of [['morning','D','E','F'],['afternoon','G','H','I']]){if((r[flag]&&r[flag]!=='—')||r[start]||r[end])day.turns.push({id,start:excelTime(r[start]),end:excelTime(r[end]),status:r.C==='FIESTA'?'not-needed':'planned',attendance:r[flag]==='Sí'?'yes':r[flag]==='No'?'no':'pending',confirmation:'pending'});}if(day.paid>0)day.payments.push({amount:day.paid,date:excelDate(r.Q),note:'Importat del registre original'});return day;});}
+
+export function missingDefaultDays(existing,from,to){
+ const known=new Set(existing),result=[],date=new Date(from+'T12:00:00');
+ for(;localDate(date)<=to;date.setDate(date.getDate()+1)){
+  const key=localDate(date),day=defaultDay(key);
+  if(!known.has(key)&&day.turns.length)result.push({...day,automatic:true});
+ }
+ return result;
+}
+export function untouchedDefault(day){
+ return day?.automatic===true&&!day.notes?.trim()&&!day.annaNotes?.trim()
+  &&cents(day.paid)===0&&!(day.payments||[]).length
+  &&(day.turns||[]).every(t=>t.status==='planned'&&t.attendance==='pending'&&t.confirmation==='pending');
+}

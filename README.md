@@ -33,3 +33,9 @@ Abans de considerar-la activa, comprova amb els dos comptes que l’Ana veu un c
 ## Informació per a Ana i full compartit
 
 La secció privada Info Ana incorpora les cinc seccions de la pestanya Información en importar l’Excel. Requereix publicar les regles actualitzades de `firestore.rules`. Per actualitzar automàticament els pagaments de l’app al full Google Sheets i les instruccions del full a l’app, segueix [SYNC.md](SYNC.md). La connexió queda pendent d’instal·lar i autoritzar el script al teu compte.
+
+### Dies previstos per defecte
+
+En entrar amb un compte de gestió i rebre les dades del servidor, l’app incorpora els dies laborables que falten des d’avui fins al 22 de juny de 2027. No modifica els dies existents i no genera registres històrics. Els horaris nous són compartits amb Ana i s’inclouen en la sincronització amb Google Sheets. Marca «No cal venir» per cancel·lar qualsevol torn, inclosos festius o vacances no registrats.
+
+Els dies automàtics porten una marca interna `automatic`. Quan la família els edita, deixa de ser un horari automàtic. En importar l’Excel, només es poden substituir dies automàtics intactes; es conserven els modificats, els pagaments, les respostes i els missatges d’Ana.
