@@ -1,4 +1,4 @@
-import {defaultDay,localDate,untouchedDefault,cents} from './domain.mjs?v=11';
+import {defaultDay,localDate,untouchedDefault,cents} from './domain.mjs?v=12';
 
 // Calendar data travels through the existing private Información sync.
 export function scheduleFromInformation(info){
@@ -70,7 +70,7 @@ export function periodDates(from,to){
 }
 
 export function closeDay(day,closure){
- if(!day?.turns.length)return null;
+ if(!day||!Array.isArray(day.turns))return null;
  return {...day,automatic:false,closure,
   closurePreviousTurns:day.closurePreviousTurns||day.turns.map(t=>({...t})),
   turns:day.turns.map(t=>({...t,status:'not-needed'}))};
