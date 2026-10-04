@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment} from './domain.mjs';
+import {excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment,isAgendaDay} from './domain.mjs';
 assert.equal(excelDate('46279.0'),'2026-09-14');
 assert.equal(excelDate('19/09/2026'),'2026-09-19');
 assert.equal(excelDate('46063.0'),'2026-02-10');
@@ -28,3 +28,8 @@ scheduled.turns[0].status='not-needed';assert.equal(totals(scheduled,'2026-09-28
 scheduled.turns[0].status='unavailable';assert.equal(totals(scheduled,'2026-09-28').earned,0);
 scheduled.turns[0].status='planned';scheduled.turns[0].attendance='no';assert.equal(totals(scheduled,'2026-09-28').earned,0);
 console.log('Horaris: còmput automàtic, canvis d’hora, futur i cancel·lacions OK');
+
+assert.equal(isAgendaDay({role:'anna'},'test-user-uid'),false);
+assert.equal(isAgendaDay(defaultDay('2026-10-05'),'2026-10-05'),true);
+assert.equal(isAgendaDay(defaultDay('2026-10-05'),'test-user-uid'),false);
+console.log('Documents de permisos fora del calendari: OK');
