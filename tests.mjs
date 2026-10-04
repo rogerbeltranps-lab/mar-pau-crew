@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {excelDate,excelTime,defaultDay,totals,importRows} from './domain.mjs';
+import {excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment} from './domain.mjs';
 assert.equal(excelDate('46279.0'),'2026-09-14');
 assert.equal(excelDate('19/09/2026'),'2026-09-19');
 assert.equal(excelDate('46063.0'),'2026-02-10');
@@ -11,3 +11,12 @@ const row={A:'46287.0',C:'Mañana + tarde',D:'Sí',E:'0.3333333333333333',F:'0.3
 const d=importRows([row])[0];assert.equal(d.notes,'Nota original');assert.equal(d.turns[1].attendance,'no');assert.equal(d.payments[0].date,'2026-02-10');assert.deepEqual(d.source,row);assert.equal(totals(d).pending,0);
 assert.equal(importRows([{A:'Fecha'},{}]).length,0);
 console.log('Dates, torns, hores, pagaments i preservació d’importació: OK');
+
+assert.deepEqual(fridayPeriod('2026-10-04'),{from:'2026-09-28',to:'2026-10-02'});
+assert.deepEqual(fridayPeriod('2026-10-02'),{from:'2026-09-28',to:'2026-10-02'});
+const a=defaultDay('2026-09-28'),b=defaultDay('2026-09-29');a.turns[0].attendance='yes';a.paid=2.5;b.turns[0].attendance='yes';
+assert.deepEqual(allocatePayment([b,a],15),[{date:a.date,amount:10},{date:b.date,amount:5}]);
+assert.deepEqual(allocatePayment([a,b],20),[{date:a.date,amount:10},{date:b.date,amount:10}]);
+assert.throws(()=>allocatePayment([a,b],20.01));assert.throws(()=>allocatePayment([a,b],0));
+assert.equal(a.paid,2.5);assert.equal(b.paid,0);
+console.log('Pagaments conjunts: import exacte, pagament parcial i límit de saldo OK');
