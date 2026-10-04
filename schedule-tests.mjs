@@ -31,3 +31,22 @@ assert.notEqual(reconcileSchedule(auto,schedule.get(auto.date),'2027-02-01'),aut
 const old={...defaultDay('2027-02-03'),automatic:true};
 assert.equal(reconcileSchedule(old,schedule.get(old.date),'2027-02-04'),old);
 console.log('Calendari: previsió visible sense editar, excepcions, festius, pagaments i avisos preservats OK');
+
+const {periodDates,closeDay,reopenDay,confirmedRows}=await import('./schedule.mjs');
+assert.equal(periodDates('2027-02-01','2027-02-14').length,14);
+assert.throws(()=>periodDates('2027-02-14','2027-02-01'));
+assert.throws(()=>periodDates('2027-01-01','2028-01-02'));
+const vacation={id:'holiday-example',from:'2027-02-01',to:'2027-02-14',reason:'Vacances'};
+const closed=closeDay(edited,vacation);
+assert.ok(closed.turns.every(t=>t.status==='not-needed'));
+assert.equal(totals(closed,'2027-03-01').earned,0);
+assert.equal(closed.paid,edited.paid);assert.equal(closed.annaNotes,edited.annaNotes);
+assert.equal(reconcileSchedule(closed,schedule.get(closed.date),'2027-02-01'),closed);
+assert.deepEqual(reopenDay(closed,vacation.id).turns,edited.turns);
+assert.equal(reopenDay(closed,'different-period'),null);
+const overlap=closeDay(closed,{...vacation,id:'overlap'});
+assert.deepEqual(reopenDay(overlap,'overlap').turns,edited.turns);
+assert.equal(closeDay(defaultDay('2027-02-06'),vacation),null);
+assert.deepEqual(confirmedRows([['2027-02-02','08:15–09:00','17:15–19:15','Matí confirmat']])[0].cells,info.sections[0].rows[1].cells);
+assert.throws(()=>confirmedRows([['2027-02-02','<script>','—','Dia confirmat']]));
+console.log('Vacances: període sencer, caps de setmana, solapaments, restauració i sincronització preservats OK');
