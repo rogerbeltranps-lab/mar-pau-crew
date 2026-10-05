@@ -1,1 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#275c52"/><text x="32" y="39" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="700" fill="#fff">MPC</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MP'sC">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f7b69"/>
+      <stop offset="1" stop-color="#075f54"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="13" fill="url(#bg)"/>
+  <text x="6" y="40" font-family="Arial,Helvetica,sans-serif" font-size="25" font-weight="800" fill="#fffaf0">MP</text>
+  <text x="34.5" y="39" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="800" fill="#a8dc83">’s</text>
+  <text x="47" y="40" font-family="Arial,Helvetica,sans-serif" font-size="25" font-weight="800" fill="#fffaf0">C</text>
+  <path d="M20 47 C31 43, 40 43, 48 45" fill="none" stroke="#a8dc83" stroke-width="2.8" stroke-linecap="round"/>
+</svg>
