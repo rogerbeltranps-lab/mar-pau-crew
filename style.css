@@ -8,3 +8,18 @@
 #calendar-closures h3{margin-top:0}#closure-list{margin-top:1rem}.calendar-reason{overflow-wrap:anywhere;color:#675b4a}
 
 .calendar-turn.turn-not-needed{background:#f7d6d6;color:#7a3f3f;margin-left:-4px;margin-right:-4px;padding:5px 4px;border-radius:8px;width:calc(100% + 8px)}
+
+.header-actions{display:flex;gap:8px;align-items:center}.header-actions button[hidden]{display:none}#theme-toggle{min-width:44px;padding:12px}
+:root[data-theme=dark]{color-scheme:dark;color:#e3ece6;background:#101a17;--green:#4d9a88;--line:#2c4039}
+[data-theme=dark] header{background:#1b3a33}[data-theme=dark] header small{color:#a9c3b5}[data-theme=dark] h1 span{color:#edcf79}
+[data-theme=dark] button,[data-theme=dark] .file,[data-theme=dark] .card,[data-theme=dark] .stat,[data-theme=dark] dialog,[data-theme=dark] input,[data-theme=dark] textarea,[data-theme=dark] select{background:#182822;color:#e3ece6}
+[data-theme=dark] button,[data-theme=dark] .file{color:#9fd3c2}[data-theme=dark] button:hover{background:#21382f}
+[data-theme=dark] .primary,[data-theme=dark] nav .active{background:#2f7566;color:#fff;border-color:#2f7566}[data-theme=dark] .primary:hover{background:#3a8878}
+[data-theme=dark] input,[data-theme=dark] textarea,[data-theme=dark] select{border-color:#3b5148}
+[data-theme=dark] .muted,[data-theme=dark] .weekday,[data-theme=dark] .row small,[data-theme=dark] #status{color:#97aea4}
+[data-theme=dark] .date{--day-bg:#182822}[data-theme=dark] .date.planned{--day-bg:#1f352c}[data-theme=dark] .date.done{--day-bg:#25483a}
+[data-theme=dark] .date.cancelled{--day-bg:#4a2a2a;color:#f0b8b8}[data-theme=dark] .date.unavailable{--day-bg:#4a3426;color:#f0c4ab}
+[data-theme=dark] .calendar-turn.turn-unavailable,[data-theme=dark] .calendar-turn.turn-not-needed{background:#4a2a2a;color:#f0b8b8}
+[data-theme=dark] .calendar-hours{color:#9fd3c2}[data-theme=dark] .calendar-reason{color:#c9bba5}
+[data-theme=dark] #ana-alerts{background:#3a2b1e;border-color:#6b4f35}[data-theme=dark] .bad{color:#f0a08c}
+[data-theme=dark] dialog::backdrop{background:#000a}[data-theme=dark] #toast{background:#2a4a40}

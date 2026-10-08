@@ -173,6 +173,7 @@ async function start(config){
 $('config-form').onsubmit=e=>{e.preventDefault();try{const c=JSON.parse($('config').value);if(!c.apiKey||!c.projectId||!c.authDomain)throw Error('Falten camps a la configuració.');localStorage.setItem('crew-firebase-config',JSON.stringify(c));location.reload();}catch(e){fail(e);}};
 $('login-form').onsubmit=async e=>{e.preventDefault();try{await authApi.signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);$('password').value='';}catch(e){fail(e);}};
 $('reset').onclick=async()=>{try{const email=$('email').value.trim();if(!email)throw Error('Escriu primer el teu correu.');await authApi.sendPasswordResetEmail(auth,email);notice('Si el compte existeix, rebràs un correu per canviar la contrasenya.');}catch(e){fail(e);}};
+$('theme-toggle').onclick=()=>cycleTheme();applyTheme();
 $('logout').onclick=()=>{authApi.signOut(auth);$('day-dialog').close();};
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.dataset.view;$('month-navigation').hidden=view==='vacations';for(const v of ['calendar','payments','information','vacations','settings'])$(v+'-view').hidden=v!==view;document.querySelectorAll('[data-view]').forEach(el=>el.classList.toggle('active',el===b));});
 $('prev').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()-1,1);render();};$('next').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()+1,1);render();};$('today').onclick=()=>{month=new Date();render();openDay(localDate());};
