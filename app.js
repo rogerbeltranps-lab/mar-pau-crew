@@ -128,9 +128,13 @@ function renderInformation(info){
 function renderInformationRows(rows){
  const width=Math.max(...rows.map(r=>r.cells.length));
  if(width<3)return rows.map(({cells:row})=>`<div class="info-row">${row.map((cell,i)=>i===0&&row.length>1?`<strong>${esc(cell)}</strong>`:`<span>${esc(cell)}</span>`).join('')}</div>`).join('');
- const line=(row,tag)=>`<tr>${Array.from({length:width},(_,i)=>`<${tag}>${esc(row[i]||'')}</${tag}>`).join('')}</tr>`;
  const [head,...body]=rows;
- return `<table class="info-table"><thead>${line(head.cells,'th')}</thead><tbody>${body.map(({cells})=>line(cells,'td')).join('')}</tbody></table>`;
+ const label=i=>head.cells[i]||'';
+ return body.map(({cells})=>{
+  const extra=cells.slice(1,width-1).map((c,k)=>({l:label(k+1),v:c})).filter(x=>x.v&&x.v!=='—');
+  const note=width>1?cells[width-1]:'';
+  return `<div class="info-day"><strong>${esc(cells[0]||'')}</strong>${extra.map(x=>`<div class="info-slot"><span>${esc(x.l)}</span><b>${esc(x.v)}</b></div>`).join('')}${note&&note!=='—'?`<p>${esc(note)}</p>`:''}</div>`;
+ }).join('');
 }
 function periodDays(){return [...days.values()].filter(d=>d.date>=$('week-from').value&&d.date<=$('week-to').value);}
 function renderWeeklyPayments(){
