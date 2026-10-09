@@ -123,7 +123,14 @@ function renderAnaAlerts(){
 }
 function renderInformation(info){
  if(!info?.sections?.length){$('ana-information').innerHTML='<div class="card"><p>Importa l’Excel a Gestió per incorporar la pestanya Información. Si ja has importat els dies, pots repetir-ho: es conservaran els dies existents.</p></div>';return;}
- $('ana-information').innerHTML=info.sections.filter(s=>s.title!=='Calendari de Registro').map(section=>`<section class="card"><h3>${esc(section.title)}</h3>${section.rows.map(({cells:row})=>`<div class="info-row">${row.map((cell,i)=>i===0&&row.length>1?`<strong>${esc(cell)}</strong>`:`<span>${esc(cell)}</span>`).join('')}</div>`).join('')}</section>`).join('');
+ $('ana-information').innerHTML=info.sections.filter(s=>s.title!=='Calendari de Registro').map(section=>`<section class="card"><h3>${esc(section.title)}</h3>${renderInformationRows(section.rows)}</section>`).join('');
+}
+function renderInformationRows(rows){
+ const width=Math.max(...rows.map(r=>r.cells.length));
+ if(width<3)return rows.map(({cells:row})=>`<div class="info-row">${row.map((cell,i)=>i===0&&row.length>1?`<strong>${esc(cell)}</strong>`:`<span>${esc(cell)}</span>`).join('')}</div>`).join('');
+ const line=(row,tag)=>`<tr>${Array.from({length:width},(_,i)=>`<${tag}>${esc(row[i]||'')}</${tag}>`).join('')}</tr>`;
+ const [head,...body]=rows;
+ return `<table class="info-table"><thead>${line(head.cells,'th')}</thead><tbody>${body.map(({cells})=>line(cells,'td')).join('')}</tbody></table>`;
 }
 function periodDays(){return [...days.values()].filter(d=>d.date>=$('week-from').value&&d.date<=$('week-to').value);}
 function renderWeeklyPayments(){
