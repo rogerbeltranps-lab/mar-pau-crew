@@ -1,0 +1,13 @@
+{
+  "name": "Mar & Pau’s Crew",
+  "short_name": "MPC",
+  "start_url": "/mar-pau-crew/",
+  "scope": "/mar-pau-crew/",
+  "display": "standalone",
+  "background_color": "#275c52",
+  "theme_color": "#275c52",
+  "icons": [
+    { "src": "mpc-icon-192-v10.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "mpc-icon-512-v10.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
