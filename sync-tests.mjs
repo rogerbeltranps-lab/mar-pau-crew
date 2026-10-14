@@ -5,10 +5,12 @@ import {totals} from './domain.mjs';
 import {parseInformationRows} from './information.mjs';
 const context=vm.createContext({});
 vm.runInContext(fs.readFileSync(new URL('./google-sheets-sync.gs',import.meta.url),'utf8'),context);
-const days=[{date:'2026-09-28',rate:10,paid:12.5,notes:'=test',turns:[{id:'morning',start:'07:45',end:'09:00',status:'planned',attendance:'pending'}],payments:[{id:'weekly',date:'2026-10-02',amount:12.5}]},
+const days=[{date:'2026-09-28',rate:10,paid:12.5,notes:'=test',turns:[{id:'morning',start:'07:45',end:'09:00',status:'planned',attendance:'yes'}],payments:[{id:'weekly',date:'2026-10-02',amount:12.5}]},
  {date:'2026-09-29',rate:10,paid:5,turns:[{id:'morning',start:'08:00',end:'09:00',status:'planned',attendance:'yes'}],payments:[{id:'weekly',date:'2026-10-02',amount:5}]},
  {date:'2027-01-01',rate:10,paid:0,turns:[{id:'morning',start:'08:00',end:'10:00',status:'planned'}]}];
 for(const day of days)assert.deepEqual(JSON.parse(JSON.stringify(context.crewTotals(day,'2026-10-04'))),totals(day,'2026-10-04'));
+assert.equal(context.crewTotals(days[2],'2027-01-02').earned,0); // Pending hours are not billable.
+assert.equal(typeof context.notifyCrew,'function');
 const output=context.crewOutput(days,'2026-10-04');
 assert.equal(output.payments.length,1);assert.equal(output.payments[0][1],17.5);
 assert.equal(output.register[0][8],'💶 Pagat');assert.equal(output.register[1][8],'Pendent');
