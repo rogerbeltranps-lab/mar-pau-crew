@@ -25,3 +25,19 @@ Si l’app encara no té registres, importa el teu Excel a Gestió: el script no
 ## Validació
 
 `node tests.mjs` i `node sync-tests.mjs` comproven càlculs, pagaments agrupats, text tractat com a dades, lectura paginada i la informació. L’autorització, els activadors i el primer refresc real s’han de comprovar després de l’activació al compte de Google.
+
+## Email notifications
+
+After publishing the GitHub Pages changes, finish the **one-time private setup** to deliver emails. Merely updating GitHub does **not** deploy Firestore rules or install Apps Script triggers.
+
+1. In Firebase Console → Firestore Database → **Rules**, publish the updated `firestore.rules` from this repository (it permits authenticated users to create private notification events without giving Anna schedule-editing rights).
+2. In the Google Sheet linked to the project, open **Extensions → Apps Script**. Replace the script with the latest `google-sheets-sync.gs`, and its manifest with the latest `appsscript.json` (which adds MailApp permission). Save both files.
+3. In Apps Script → **Project Settings → Script properties**, enter the following private values:
+   - `crewAnnaEmail`: the email address Anna should receive when Roger edits the app.
+   - `crewRogerEmail`: the email address Roger should receive when Anna reports unavailability or changes her message.
+4. In the Apps Script function selector, run **`setupCrewNotifications`** once and approve the Google permissions. This creates a trigger for **`notifyCrew` every five minutes**, using the Google account authorizing the script as sender. Run **`testCrewNotifications`** to send one test email to each recipient.
+5. Edit a shift or message from each account and check both mailboxes, including Spam. If notifications do not arrive, inspect **Apps Script → Executions** for errors and confirm that the Google account authorizing the script has Firestore IAM access.
+
+The first setup begins notifications from the setup time: old edits will not be emailed retroactively. Edits are saved even if email notification is not configured; the app warns when it cannot enqueue an event. Only manual actions produce events; automatically generated schedule days and sheet synchronization do not. To pause emails without affecting synchronization, run `stopCrewNotifications`; re-running `setupCrewNotifications` restores the trigger without resetting the delivery cursor.
+
+Email credentials and addresses belong in private Apps Script properties, **not in GitHub**. Sending uses the current Google Apps Script MailApp quota and does not require a paid mail API.
