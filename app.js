@@ -1,6 +1,6 @@
 import {firebaseConfig} from './firebase-config.js';
-import {cents,localDate,defaultDay,totals,hours,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault} from './domain.mjs?v=12';
-import {scheduleFromInformation,reconcileSchedule,agendaDay,agendaDays,periodDates,closeDay,reopenDay,confirmedRows} from './schedule.mjs?v=12';
+import {cents,localDate,defaultDay,totals,hours,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault} from './domain.mjs?v=13';
+import {scheduleFromInformation,reconcileSchedule,agendaDay,agendaDays,periodDates,closeDay,reopenDay,confirmedRows} from './schedule.mjs?v=13';
 import {readExcel} from './excel.js';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>new Intl.NumberFormat('ca-ES',{style:'currency',currency:'EUR'}).format(n), labels={morning:'Matí',afternoon:'Tarda'};
@@ -108,7 +108,7 @@ async function installCalendarLink(){
   const section={title:'Calendari de Registro',rows:[...merged.values()].sort((a,b)=>a.cells[0].localeCompare(b.cells[0]))};
   tx.set(ref,{...info,sections:[...info.sections.filter(s=>s.title!==section.title),section],updatedBy:uid,updatedAt:api.serverTimestamp()});
  });
- await reportChange('schedule',rows[0][0],'Calendari acordat: '+rows.map(r=>r[0]+' ('+r[3]+')').join(', '),'information');
+ await reportChange('schedule',rows[0].cells[0],'Calendari acordat: '+rows.map(r=>r.cells[0]+' ('+r.cells[3]+')').join(', '),'information');
  history.replaceState(null,'',location.pathname+location.search);
  notice('Dates acordades i festius incorporats a l’agenda privada.');
 }
