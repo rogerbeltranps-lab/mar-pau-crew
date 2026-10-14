@@ -139,3 +139,85 @@ function parseInformationRows(rows){
  }
  return {title:'Información para Ana',sections:sections.filter(s=>s.rows.length)};
 }
+
+
+// Email notices for deliberate app edits. Runs with the owner's Apps Script
+// authorization; no email credentials or service account secrets are published.
+function installCrewNotifications(annaEmail, rogerEmail) {
+  const props=PropertiesService.getScriptProperties();
+  const owner=(rogerEmail||Session.getEffectiveUser().getEmail()||'').trim();
+  const anna=(annaEmail||'').trim();
+  const valid=email=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);
+  if(!valid(owner)||!valid(anna)||owner.toLowerCase()===anna.toLowerCase())
+    throw new Error('Indica els dos correus diferents: installCrewNotifications("anna@example.com", "roger@example.com"). El segon és opcional si el compte que executa el script és el de Roger.');
+  props.setProperties({crewRogerEmail:owner,crewAnnaEmail:anna});
+  // The first installation starts from NOW, not from historical data.
+  if(!props.getProperty('crewNotificationCursor'))
+    props.setProperty('crewNotificationCursor',JSON.stringify({at:new Date().toISOString(),id:'initial'}));
+  ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==='notifyCrew').forEach(t=>ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('notifyCrew').timeBased().everyMinutes(5).create();
+}
+
+function stopCrewNotifications() {
+  ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==='notifyCrew').forEach(t=>ScriptApp.deleteTrigger(t));
+}
+
+function crewNotificationEvents(cursor) {
+  // A server-side cursor avoids scanning the entire notification history every five minutes.
+  const documentName='projects/'+CREW_PROJECT+'/databases/(default)/documents/notifications/'+cursor.id;
+  const query={structuredQuery:{
+    from:[{collectionId:'notifications'}],
+    orderBy:[{field:{fieldPath:'createdAt'},direction:'ASCENDING'},
+             {field:{fieldPath:'__name__'},direction:'ASCENDING'}],
+    startAt:{values:[{timestampValue:cursor.at},{referenceValue:documentName}],before:false},
+    limit:100
+  }};
+  const response=crewRequest(':runQuery','post',query);
+  return (response||[]).filter(row=>row.document).map(row=>{
+    const doc=row.document,entry=crewFields(doc.fields||{});
+    return {...entry,id:doc.name.slice(doc.name.lastIndexOf('/')+1)};
+  });
+}
+
+function notifyCrew() {
+  const lock=LockService.getScriptLock();if(!lock.tryLock(1000))return;
+  try {
+    const props=PropertiesService.getScriptProperties();
+    const annaEmail=props.getProperty('crewAnnaEmail'),rogerEmail=props.getProperty('crewRogerEmail');
+    if(!annaEmail||!rogerEmail)throw new Error('Executa installCrewNotifications amb els dos correus.');
+    let cursor=JSON.parse(props.getProperty('crewNotificationCursor')||'null');
+    if(!cursor)throw new Error('No hi ha punt inicial de notificacions. Torna a executar installCrewNotifications.');
+    const events=crewNotificationEvents(cursor),verified=new Map();
+    for(let i=0;i<events.length;){
+      const first=events[i],group=[first];
+      while(i+group.length<events.length&&group.length<10
+       &&events[i+group.length].actorUid===first.actorUid
+       &&events[i+group.length].actorRole===first.actorRole)group.push(events[i+group.length]);
+      const role=first.actorRole,recipient=role==='owner'?annaEmail:role==='anna'?rogerEmail:'';
+      if(recipient){
+        if(!verified.has(first.actorUid)){
+          const member=crewRequest('/members/'+encodeURIComponent(first.actorUid));
+          verified.set(first.actorUid,crewFields(member.fields||{}).role);
+        }
+        if(verified.get(first.actorUid)===role){
+          const name=role==='owner'?'Roger':'Anna';
+          const title=role==='owner'?'Canvis d’en Roger':'Avisos de l’Ana';
+          const body=group.map(e=>'Data: '+e.date+'\\nTipus: '+({day:'Torns o missatges',payment:'Pagaments',vacation:'Vacances / horaris',schedule:'Calendari'}[e.kind]||'Canvi')+'\\n'+e.summary).join('\\n\\n---\\n\\n');
+          MailApp.sendEmail({to:recipient,subject:"Mar & Pau's Crew — "+title+(group.length>1?' ('+group.length+')':''),body:name+' ha fet aquests canvis a l’app:\\n\\n'+body+'\\n\\nObre l’agenda per consultar-ne els detalls.'});
+        }
+      }
+      const last=group[group.length-1];
+      cursor={at:last.createdAt,id:last.id};
+      props.setProperty('crewNotificationCursor',JSON.stringify(cursor));
+      i+=group.length;
+    }
+  } finally {lock.releaseLock();}
+}
+
+function testCrewNotifications() {
+  const props=PropertiesService.getScriptProperties();
+  const anna=props.getProperty('crewAnnaEmail'),roger=props.getProperty('crewRogerEmail');
+  if(!anna||!roger)throw new Error('Executa primer installCrewNotifications.');
+  MailApp.sendEmail(anna,"Mar & Pau's Crew — prova","Aquest és un correu de prova per a l’Ana. Les notificacions de canvis d’en Roger arribaran aquí.");
+  MailApp.sendEmail(roger,"Mar & Pau's Crew — prova","Aquest és un correu de prova per a Roger. Els avisos de l’Ana arribaran aquí.");
+}
