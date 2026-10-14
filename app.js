@@ -7,6 +7,37 @@ const money=n=>new Intl.NumberFormat('ca-ES',{style:'currency',currency:'EUR'}).
 let db,auth,api,authApi,user,role,days=new Map(),month=new Date(),selected='',view='calendar',unsubscribe,infoUnsubscribe,schedule=new Map(),informationReady=false,daysReady=false,calendarSyncRunning=false,imported=[],saving=false,initialCalendarPositioned=false;
 const notice=s=>{$('toast').textContent=s;$('toast').hidden=false;clearTimeout(notice.timer);notice.timer=setTimeout(()=>$('toast').hidden=true,6500);};
 const fail=e=>notice(e.code==='permission-denied'?'Aquest compte no té permís. Revisa els membres i les regles de Firebase.':e.code?.startsWith('auth/')?'No s’ha pogut entrar. Comprova el correu, la contrasenya i la configuració d’accés.':e.message||'No s’ha pogut desar. Torna-ho a provar.');
+
+function turnDescription(t){
+ if(!t)return 'Sense torn';
+ if(t.status==='not-needed')return 'No cal venir';
+ if(t.status==='unavailable'||t.confirmation==='no')return 'No pot venir';
+ const attendance=t.attendance==='yes'?'Fet':t.attendance==='no'?'No ha vingut':'Pendent de confirmar';
+ return (t.start&&t.end?t.start+'–'+t.end+' · ':'')+attendance;
+}
+function summarizeDayChange(before,after){
+ const changes=[];
+ for(const id of ['morning','afternoon']){
+  const a=(before.turns||[]).find(t=>t.id===id),b=(after.turns||[]).find(t=>t.id===id);
+  if(JSON.stringify(a||null)!==JSON.stringify(b||null))changes.push(labels[id]+': '+turnDescription(a)+' → '+turnDescription(b));
+ }
+ if(before.rate!==after.rate)changes.push('Tarifa: '+before.rate+' € → '+after.rate+' €');
+ if((before.notes||'')!==(after.notes||''))changes.push('Instruccions de Roger: '+(after.notes?.trim()||'(esborrades)').slice(0,300));
+ if((before.annaNotes||'')!==(after.annaNotes||''))changes.push('Missatge de l’Ana: '+(after.annaNotes?.trim()||'(esborrat)').slice(0,300));
+ if(JSON.stringify(before.closure||null)!==JSON.stringify(after.closure||null))changes.push('Canvi de vacances o dies sense torn');
+ return changes.join('\n');
+}
+async function reportChange(kind,date,summary,source='days'){
+ if(!summary)return;
+ const actorUid=user?.uid,actorRole=role;
+ if(!actorUid||!['owner','anna'].includes(actorRole))return;
+ try{
+  await api.addDoc(api.collection(db,'notifications'),{actorUid,actorRole,kind,date,source,summary:summary.slice(0,900),createdAt:api.serverTimestamp()});
+ }catch(e){
+  console.error('Els avisos de correu encara no estan disponibles',e);
+  notice('Canvis desats. L’avís per correu necessita activar les regles i el servei de notificacions.');
+ }
+}
 const online=()=>{if(!navigator.onLine)throw Error('Cal connexió per desar. Els canvis encara no s’han guardat.');};
 function positionCalendarOnOpen(){
  if(initialCalendarPositioned||view!=='calendar')return;
@@ -17,7 +48,7 @@ async function busy(action){if(saving)return;saving=true;document.querySelectorA
 function render(){
  $('month-title').textContent=month.toLocaleDateString('ca-ES',{month:'long',year:'numeric'});const year=month.getFullYear(),m=month.getMonth(),count=new Date(year,m+1,0).getDate(),offset=(new Date(year,m,1).getDay()+6)%7;
  let html=['Dl','Dt','Dc','Dj','Dv','Ds','Dg'].map(s=>`<div class="weekday">${s}</div>`).join('')+'<div></div>'.repeat(offset);
- for(let i=1;i<=count;i++){const date=localDate(new Date(year,m,i)),day=agendaDay(days,schedule,date),t=day?.turns||[],done=days.has(date)&&totals(day).hours>0,unavailable=t.some(t=>t.status==='unavailable'||t.status==='planned'&&(t.attendance==='no'||t.confirmation==='no')),hasAvailableTurn=t.some(t=>t.status==='planned'&&t.attendance!=='no'&&t.confirmation!=='no'),fullUnavailable=unavailable&&!hasAvailableTurn,cancelled=!!day?.closure||t.length&&t.every(t=>t.status==='not-needed'),paid=!!day&&totals(day).paid>0&&totals(day).pending<=0&&totals(day).earned>0,state=fullUnavailable?'unavailable':done?'done':cancelled?'cancelled':t.length?'planned':'',partialMorning=!cancelled&&t.some(x=>x.id==='morning'&&x.status==='not-needed'),partialAfternoon=!cancelled&&t.some(x=>x.id==='afternoon'&&x.status==='not-needed'),partialClass=partialMorning?'partial-not-needed-morning':partialAfternoon?'partial-not-needed-afternoon':'';html+=`<button class="date ${state} ${partialClass} ${date===localDate()?'today':''}" data-date="${date}" aria-label="${date}${done?', horari comptabilitzat':''}${paid?', pagat':''}"><b>${i}${paid?' <span title="Pagat">💶</span>':''}</b><small>${fullUnavailable?'× No pot':cancelled?'− No cal':''}</small>${day?.closure?`<small class="calendar-reason">${esc(day.closure.reason)}</small>`:''}${t.filter(t=>(t.status==='planned'&&t.attendance!=='no')||t.status==='unavailable'||t.status==='planned'&&(t.attendance==='no'||t.confirmation==='no')||(t.status==='not-needed'&&!cancelled)).map(t=>`<small class="calendar-turn ${t.status==='not-needed'?'turn-not-needed':t.status==='unavailable'||t.status==='planned'&&(t.attendance==='no'||t.confirmation==='no')?'turn-unavailable':''}"><span>${t.id==='morning'?'☀️ Matí':'🌇 Tarda'}</span><span>${t.status==='planned'&&t.attendance==='yes'?'✓ Fet':t.status==='unavailable'||t.status==='planned'&&(t.attendance==='no'||t.confirmation==='no')?'× No pot venir':t.status==='planned'?'● Prevista':t.status==='not-needed'?'− No cal venir':''}</span><span>${t.status==='not-needed'?'No cal venir':`${esc(t.start)}–<wbr>${esc(t.end)}`}</span></small>`).join('')}${t.some(t=>t.status==='planned'&&t.attendance!=='no')?`<small class="calendar-hours">${t.filter(t=>t.status==='planned'&&t.attendance!=='no').reduce((sum,t)=>sum+hours(t),0).toLocaleString('ca-ES',{maximumFractionDigits:2})} h</small>`:''}</button>`;}
+ for(let i=1;i<=count;i++){const date=localDate(new Date(year,m,i)),day=agendaDay(days,schedule,date),t=day?.turns||[],done=t.some(x=>x.status==='planned'&&x.attendance==='yes')&&t.filter(x=>x.status==='planned').every(x=>x.attendance==='yes'),unavailable=t.some(t=>t.status==='unavailable'||t.status==='planned'&&(t.attendance==='no'||t.confirmation==='no')),hasAvailableTurn=t.some(t=>t.status==='planned'&&t.attendance!=='no'&&t.confirmation!=='no'),fullUnavailable=unavailable&&!hasAvailableTurn,cancelled=!!day?.closure||t.length&&t.every(t=>t.status==='not-needed'),paid=!!day&&totals(day).paid>0&&totals(day).pending<=0&&totals(day).earned>0,state=fullUnavailable?'unavailable':done?'done':cancelled?'cancelled':t.length?'planned':'',partialMorning=!cancelled&&t.some(x=>x.id==='morning'&&x.status==='not-needed'),partialAfternoon=!cancelled&&t.some(x=>x.id==='afternoon'&&x.status==='not-needed'),partialClass=partialMorning?'partial-not-needed-morning':partialAfternoon?'partial-not-needed-afternoon':'';html+=`<button class="date ${state} ${partialClass} ${date===localDate()?'today':''}" data-date="${date}" aria-label="${date}${done?', horari comptabilitzat':''}${paid?', pagat':''}"><b>${i}${paid?' <span title="Pagat">💶</span>':''}</b><small>${fullUnavailable?'× No pot':cancelled?'− No cal':''}</small>${day?.closure?`<small class="calendar-reason">${esc(day.closure.reason)}</small>`:''}${t.filter(t=>(t.status==='planned'&&t.attendance!=='no')||t.status==='unavailable'||t.status==='planned'&&(t.attendance==='no'||t.confirmation==='no')||(t.status==='not-needed'&&!cancelled)).map(t=>`<small class="calendar-turn ${t.status==='not-needed'?'turn-not-needed':t.status==='unavailable'||t.status==='planned'&&(t.attendance==='no'||t.confirmation==='no')?'turn-unavailable':''}"><span>${t.id==='morning'?'☀️ Matí':'🌇 Tarda'}</span><span>${t.status==='planned'&&t.attendance==='yes'?'✓ Fet':t.status==='planned'&&t.attendance==='no'?'× No ha vingut':t.status==='unavailable'||t.status==='planned'&&t.confirmation==='no'?'× No pot venir':t.status==='planned'?'● Prevista':t.status==='not-needed'?'− No cal venir':''}</span><span>${t.status==='not-needed'?'No cal venir':`${esc(t.start)}–<wbr>${esc(t.end)}`}</span></small>`).join('')}${t.some(t=>t.status==='planned'&&t.attendance!=='no')?`<small class="calendar-hours">${t.filter(t=>t.status==='planned'&&t.attendance!=='no').reduce((sum,t)=>sum+hours(t),0).toLocaleString('ca-ES',{maximumFractionDigits:2})} h</small>`:''}</button>`;}
  $('calendar').innerHTML=html;
  try{renderAnaAlerts();}catch(e){console.error('renderAnaAlerts',e);}
  try{renderClosures();}catch(e){console.error('renderClosures',e);}
@@ -168,14 +199,61 @@ async function payWeek(){await busy(async()=>{
 function openDay(date){selected=date;const day=agendaDay(days,schedule,date)||defaultDay(date),owner=role==='owner';$('day-title').textContent=new Date(date+'T12:00:00').toLocaleDateString('ca-ES',{weekday:'long',day:'numeric',month:'long'});$('day-summary').textContent=days.has(date)?'Horari guardat. Pots ajustar l’entrada i la sortida; es recalcularà l’import.':'Dia nou: horari habitual proposat.';
  const defaults=defaultDay(date).turns;
  const base=['morning','afternoon'].map(id=>day.turns.find(t=>t.id===id)||(()=>{const habitual=defaults.find(t=>t.id===id);return habitual?{...habitual,status:'none'}:{id,start:'',end:'',status:'none',attendance:'pending',confirmation:'pending'};})());
- $('turns').innerHTML=base.map(t=>`<div class="turn" data-turn="${t.id}"><h3>${labels[t.id]}</h3><label>Previsió<select data-field="status"><option value="none">Sense torn</option><option value="planned">Ve a l’horari indicat</option><option value="not-needed">No cal venir</option><option value="unavailable">Ana no pot venir</option></select></label><div class="times"><label>Entrada<input type="time" data-field="start" value="${esc(t.start)}" ${owner?'':'disabled'}></label><label>Sortida<input type="time" data-field="end" value="${esc(t.end)}" ${owner?'':'disabled'}></label></div><label>Disponibilitat de l’Ana (opcional)<select data-field="confirmation"><option value="pending">Sense resposta (opcional)</option><option value="yes">Confirmat: vindrà</option><option value="no">No pot venir</option></select></label></div>`).join('');
- document.querySelectorAll('[data-turn]').forEach((el,i)=>{const t=base[i],statusEl=el.querySelector('[data-field="status"]');for(const k of ['status','confirmation'])el.querySelector(`[data-field="${k}"]`).value=k==='status'&&t.attendance==='no'&&t.status==='planned'?'unavailable':t[k];el.querySelector('[data-field="confirmation"]').disabled=owner||t.status==='none'||t.status==='not-needed';if(owner){statusEl.onchange=()=>{if(statusEl.value!=='planned')return;const habitual=defaults.find(x=>x.id===el.dataset.turn);if(!habitual)return;const start=el.querySelector('[data-field="start"]'),end=el.querySelector('[data-field="end"]');if(!start.value)start.value=habitual.start;if(!end.value)end.value=habitual.end;};}else{statusEl.disabled=true;el.querySelector('[data-field="confirmation"]').onchange=()=>saveDay(false);}});
+ $('turns').innerHTML=base.map(t=>`<div class="turn" data-turn="${t.id}"><h3>${labels[t.id]}</h3><label>Previsió<select data-field="status"><option value="none">Sense torn</option><option value="planned">Ve a l’horari indicat</option><option value="not-needed">No cal venir</option><option value="unavailable">Ana no pot venir</option></select></label><div class="times"><label>Entrada<input type="time" data-field="start" value="${esc(t.start)}" ${owner?'':'disabled'}></label><label>Sortida<input type="time" data-field="end" value="${esc(t.end)}" ${owner?'':'disabled'}></label></div>${owner?'<label>Assistència (només Roger)<select data-field="attendance"><option value="pending">Pendent de confirmar</option><option value="yes">✓ Fet</option><option value="no">No ha vingut</option></select></label>':''}<label>Avís de l’Ana (opcional)<select data-field="confirmation"><option value="pending">Cap avís</option><option value="no">No pot venir</option><option value="yes" disabled>Confirmat anteriorment</option></select></label></div>`).join('');
+ document.querySelectorAll('[data-turn]').forEach((el,i)=>{
+  const t=base[i],statusEl=el.querySelector('[data-field="status"]'),attendanceEl=el.querySelector('[data-field="attendance"]');
+  statusEl.value=t.status;el.querySelector('[data-field="confirmation"]').value=t.confirmation||'pending';
+  if(attendanceEl){attendanceEl.value=t.attendance||'pending';attendanceEl.disabled=t.status!=='planned';}
+  el.querySelector('[data-field="confirmation"]').disabled=owner||t.status==='none'||t.status==='not-needed';
+  if(owner){
+   statusEl.onchange=()=>{
+    if(attendanceEl){attendanceEl.disabled=statusEl.value!=='planned';attendanceEl.value='pending';}
+    if(statusEl.value!=='planned')return;
+    const habitual=defaults.find(x=>x.id===el.dataset.turn);if(!habitual)return;
+    const start=el.querySelector('[data-field="start"]'),end=el.querySelector('[data-field="end"]');
+    if(!start.value)start.value=habitual.start;if(!end.value)end.value=habitual.end;
+   };
+  }else{statusEl.disabled=true;el.querySelector('[data-field="confirmation"]').onchange=()=>saveDay(false);}
+ });
  $('day-summary').textContent=day.closure?'No cal venir: '+day.closure.reason:anaWarning(day)||$('day-summary').textContent;
  $('rate').value=day.rate;$('rate').disabled=!owner;$('notes').value=day.notes||'';$('notes').readOnly=!owner;$('anna-notes').value=day.annaNotes||'';$('anna-notes').readOnly=owner;$('pay-section').hidden=!owner;$('pay-amount').value='';$('pay-date').value=localDate();const t=totals(day);$('pay-summary').textContent=`Generat ${money(t.earned)} · Pagat ${money(t.paid)} · Pendent ${money(t.pending)}`;$('pay-history').innerHTML=(day.payments||[]).map(p=>`<p class="muted">${esc(p.date||'Sense data')} · ${money(p.amount)} · ${esc(p.note||'')}</p>`).join('');if(!$('day-dialog').open)$('day-dialog').showModal();
 }
-async function saveDay(close=true){await busy(async()=>{const owner=role==='owner',turns=[];for(const el of document.querySelectorAll('[data-turn]')){const value=k=>el.querySelector(`[data-field="${k}"]`).value;const status=value('status');if(status==='none')continue;const t={id:el.dataset.turn,start:value('start'),end:value('end'),status,attendance:status==='planned'?'yes':'pending',confirmation:value('confirmation')};if(owner&&status==='planned'&&(!t.start||!t.end||hours(t)<=0))throw Error('Revisa l’entrada i la sortida dels torns.');turns.push(t);}const rate=Number($('rate').value);if(owner&&(!Number.isFinite(rate)||rate<0||rate>1000))throw Error('Revisa la tarifa.');
- await api.runTransaction(db,async tx=>{const ref=api.doc(db,'days',selected),snap=await tx.get(ref),current=owner?(agendaDay(new Map(snap.exists()?[[selected,snap.data()]]:[]),schedule,selected)||defaultDay(selected)):(snap.exists()?snap.data():defaultDay(selected));if(!owner&&!snap.exists())throw Error('Roger ha d’obrir l’app per sincronitzar aquest horari abans que puguis avisar.');let next;if(owner){next={...current,automatic:false,turns:turns.map(t=>{const old=current.turns.find(x=>x.id===t.id);return {...t,confirmation:old?.confirmation||'pending'};}),rate,notes:$('notes').value};delete next.closure;delete next.closurePreviousTurns;}else{next={...current,annaNotes:$('anna-notes').value,turns:current.turns.map(t=>{const entered=turns.find(x=>x.id===t.id);if(!entered||['not-needed','none'].includes(t.status))return t;return {...t,confirmation:entered.confirmation,status:entered.confirmation==='no'?'unavailable':t.status==='unavailable'?'planned':t.status};})};}tx.set(ref,{...next,updatedBy:user.uid,updatedAt:api.serverTimestamp()});});if(close)$('day-dialog').close();notice(role==='anna'?'Avís desat i compartit amb la família.':'Canvis desats i compartits.');});}
-async function pay(){await busy(async()=>{const amount=cents($('pay-amount').value),date=$('pay-date').value;if(amount<=0||!date)throw Error('Indica un import positiu i una data.');const payment={amount,date,note:'Pagament registrat',id:crypto.randomUUID()};await api.runTransaction(db,async tx=>{const ref=api.doc(db,'days',selected),snap=await tx.get(ref);if(!snap.exists())throw Error('Desa primer el dia i els horaris abans de registrar el pagament.');const d=snap.data(),pending=totals(d).pending;if(amount>pending)throw Error(`L’import supera el pendent (${money(pending)}).`);tx.update(ref,{paid:cents(d.paid+amount),payments:[...(d.payments||[]),payment],updatedBy:user.uid,updatedAt:api.serverTimestamp()});});$('day-dialog').close();notice('Pagament registrat.');});}
+async function saveDay(close=true){await busy(async()=>{
+ const owner=role==='owner',turns=[];
+ for(const el of document.querySelectorAll('[data-turn]')){
+  const value=k=>el.querySelector(`[data-field="${k}"]`)?.value;
+  const status=value('status');if(status==='none')continue;
+  const t={id:el.dataset.turn,start:value('start'),end:value('end'),status,
+   attendance:owner&&status==='planned'?value('attendance'):'pending',confirmation:value('confirmation')};
+  if(owner&&status==='planned'&&(!t.start||!t.end||hours(t)<=0))throw Error('Revisa l’entrada i la sortida dels torns.');
+  turns.push(t);
+ }
+ const rate=Number($('rate').value);
+ if(owner&&(!Number.isFinite(rate)||rate<0||rate>1000))throw Error('Revisa la tarifa.');
+ let summary='';
+ await api.runTransaction(db,async tx=>{
+  const ref=api.doc(db,'days',selected),snap=await tx.get(ref);
+  const current=owner?(agendaDay(new Map(snap.exists()?[[selected,snap.data()]]:[]),schedule,selected)||defaultDay(selected)):(snap.exists()?snap.data():defaultDay(selected));
+  if(!owner&&!snap.exists())throw Error('Roger ha d’obrir l’app per sincronitzar aquest horari abans que puguis avisar.');
+  let next;
+  if(owner){
+   next={...current,automatic:false,turns:turns.map(t=>{const old=current.turns.find(x=>x.id===t.id);return {...t,confirmation:old?.confirmation||'pending'};}),rate,notes:$('notes').value};
+   delete next.closure;delete next.closurePreviousTurns;
+  }else{
+   next={...current,annaNotes:$('anna-notes').value,turns:current.turns.map(t=>{
+    const entered=turns.find(x=>x.id===t.id);
+    if(!entered||['not-needed','none'].includes(t.status))return t;
+    return {...t,confirmation:entered.confirmation,status:entered.confirmation==='no'?'unavailable':t.status==='unavailable'?'planned':t.status};
+   })};
+  }
+  summary=summarizeDayChange(current,next);
+  if(summary||!snap.exists()||owner&&current.automatic!==false)tx.set(ref,{...next,updatedBy:user.uid,updatedAt:api.serverTimestamp()});
+ });
+ if(summary)await reportChange('day',selected,summary);
+ if(close)$('day-dialog').close();
+ notice(role==='anna'?'Avís desat i compartit amb la família.':'Canvis desats i compartits.');
+});}
+async function pay(){await busy(async()=>{const amount=cents($('pay-amount').value),date=$('pay-date').value;if(amount<=0||!date)throw Error('Indica un import positiu i una data.');const payment={amount,date,note:'Pagament registrat',id:crypto.randomUUID()};await api.runTransaction(db,async tx=>{const ref=api.doc(db,'days',selected),snap=await tx.get(ref);if(!snap.exists())throw Error('Desa primer el dia i els horaris abans de registrar el pagament.');const d=snap.data(),pending=totals(d).pending;if(amount>pending)throw Error(`L’import supera el pendent (${money(pending)}).`);tx.update(ref,{paid:cents(d.paid+amount),payments:[...(d.payments||[]),payment],updatedBy:user.uid,updatedAt:api.serverTimestamp()});});await reportChange('payment',selected,'Pagament registrat: '+money(amount)+' el '+date);$('day-dialog').close();notice('Pagament registrat.');});}
 async function start(config){
  try{const base='https://www.gstatic.com/firebasejs/12.19.0/';const [app,a,f]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);authApi=a;api=f;const instance=app.initializeApp(config);db=f.getFirestore(instance);auth=a.getAuth(instance);$('connect').hidden=true;
  a.onAuthStateChanged(auth,async u=>{unsubscribe?.();infoUnsubscribe?.();schedule.clear();informationReady=false;daysReady=false;initialCalendarPositioned=false;$('ana-information').textContent='Carregant la informació…';days.clear();user=u;role=null;$('app').hidden=true;$('logout').hidden=!u;$('login').hidden=!!u;if(!u){$('status').textContent='Accés privat';return;}try{const member=await f.getDoc(f.doc(db,'members',u.uid));role=member.data()?.role;if(!['owner','anna'].includes(role)){const detail=member.exists()?`El document existeix, però role val ${JSON.stringify(role??null)}. Ha de ser el camp role de tipus string amb valor anna per a l’Ana.`:'No existeix el document de permisos amb aquest UID.';throw Error(`Accés pendent. ${detail} Correu: ${u.email}. UID: ${u.uid}. Projecte: ${config.projectId}.`);}$('app').hidden=false;$('owner-settings').hidden=role!=='owner';$('identity').hidden=role==='anna';$('access-title').textContent=role==='anna'?'La teva agenda':'Gestió de l’agenda';$('access-description').textContent=role==='anna'?'Aquí pots consultar els teus horaris, els pagaments i la informació per cuidar la Mar i el Pau. Si un dia no pots venir, toca’l al calendari per avisar-nos. També pots deixar-nos un missatge. No cal que confirmis cada torn de feina: seguim l’horari del calendari, llevat que ens indiquis un canvi.':'Pots ajustar els horaris, registrar pagaments i consultar els missatges de l’Ana. Els imports es calculen amb els horaris guardats fins avui. Els canvis es comparteixen quan tens connexió.';$('identity').textContent=`${u.email} · ${role==='owner'?'Gestió familiar':'Accés de l’Ana'}`;$('greeting').textContent=role==='owner'?'La vostra agenda':'Hola, Ana';$('status').textContent='Carregant agenda…';render();await installCalendarLink();infoUnsubscribe=f.onSnapshot(f.doc(db,'information','ana'),snap=>{const info=snap.exists()?snap.data():null;schedule=scheduleFromInformation(info);informationReady=true;renderInformation(info);render();syncCalendar();},()=>{informationReady=true;syncCalendar();$('ana-information').textContent='Cal publicar les regles actualitzades de Firebase per consultar aquesta secció.';});unsubscribe=f.onSnapshot(f.collection(db,'days'),{includeMetadataChanges:true},snapshot=>{days=new Map(snapshot.docs.filter(d=>isAgendaDay(d.data(),d.id)).map(d=>[d.id,d.data()]));daysReady=!snapshot.metadata.fromCache;$('status').textContent=snapshot.metadata.fromCache?'Connectant… Les dades poden estar pendents d’actualitzar.':'Agenda sincronitzada';render();positionCalendarOnOpen();syncCalendar();},e=>{$('status').textContent='No s’ha pogut sincronitzar l’agenda.';fail(e);});}catch(e){$('status').textContent=e.message;fail(e);}});
