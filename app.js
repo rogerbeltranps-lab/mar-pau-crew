@@ -28,14 +28,15 @@ function summarizeDayChange(before,after){
  return changes.join('\n');
 }
 async function reportChange(kind,date,summary,source='days'){
- if(!summary)return;
+ if(!summary)return true;
  const actorUid=user?.uid,actorRole=role;
- if(!actorUid||!['owner','anna'].includes(actorRole))return;
+ if(!actorUid||!['owner','anna'].includes(actorRole))return false;
  try{
   await api.addDoc(api.collection(db,'notifications'),{actorUid,actorRole,kind,date,source,summary:summary.slice(0,900),createdAt:api.serverTimestamp()});
+  return true;
  }catch(e){
   console.error('Els avisos de correu encara no estan disponibles',e);
-  notice('Canvis desats. L’avís per correu necessita activar les regles i el servei de notificacions.');
+  return false;
  }
 }
 const online=()=>{if(!navigator.onLine)throw Error('Cal connexió per desar. Els canvis encara no s’han guardat.');};
@@ -83,7 +84,7 @@ async function closePeriod(){await busy(async()=>{
    if(next){tx.set(ref,{...next,updatedBy:uid,updatedAt:api.serverTimestamp()});count++;}
   }
  });
- if(count)await reportChange('vacation',from,'Període '+from+' – '+to+': '+reason);month=new Date(from+'T12:00:00');render();notice(count?`${count} dies marcats com a «No cal venir».`:'Aquest període no té torns previstos.');
+ const notified=!count||await reportChange('vacation',from,'Període '+from+' – '+to+': '+reason);month=new Date(from+'T12:00:00');render();notice(!notified?'Dies desats, però l’avís per correu encara no està activat.':count?`${count} dies marcats com a «No cal venir».`:'Aquest període no té torns previstos.');
 });}
 async function reopenPeriod(id){await busy(async()=>{
  if(role!=='owner')throw Error('Cal un compte de gestió.');
@@ -93,7 +94,7 @@ async function reopenPeriod(id){await busy(async()=>{
   const current=[];for(const d of records){const ref=api.doc(db,'days',d.date);current.push({ref,snap:await tx.get(ref)});}
   if(user?.uid!==uid||role!=='owner')throw Error('La sessió ha canviat. Torna a entrar.');
   for(const {ref,snap} of current){const next=reopenDay(snap.exists()?snap.data():null,id);if(next)tx.set(ref,{...next,updatedBy:uid,updatedAt:api.serverTimestamp()});}
- });await reportChange('vacation',records[0].date,'Horari recuperat: '+records.length+' dia(es), període '+records[0].date+' – '+records.at(-1).date);notice('S’ha recuperat l’horari anterior del període.');
+ });const notified=await reportChange('vacation',records[0].date,'Horari recuperat: '+records.length+' dia(es), període '+records[0].date+' – '+records.at(-1).date);notice(notified?'S’ha recuperat l’horari anterior del període.':'Horari recuperat, però l’avís per correu encara no està activat.');
 });}
 async function installCalendarLink(){
  const encoded=new URLSearchParams(location.hash.slice(1)).get('calendar');
@@ -108,9 +109,9 @@ async function installCalendarLink(){
   const section={title:'Calendari de Registro',rows:[...merged.values()].sort((a,b)=>a.cells[0].localeCompare(b.cells[0]))};
   tx.set(ref,{...info,sections:[...info.sections.filter(s=>s.title!==section.title),section],updatedBy:uid,updatedAt:api.serverTimestamp()});
  });
- await reportChange('schedule',rows[0].cells[0],'Calendari acordat: '+rows.map(r=>r.cells[0]+' ('+r.cells[3]+')').join(', '),'information');
+ const notified=await reportChange('schedule',rows[0].cells[0],'Calendari acordat: '+rows.map(r=>r.cells[0]+' ('+r.cells[3]+')').join(', '),'information');
  history.replaceState(null,'',location.pathname+location.search);
- notice('Dates acordades i festius incorporats a l’agenda privada.');
+ notice(notified?'Dates acordades i festius incorporats a l’agenda privada.':'Dates desades, però l’avís per correu encara no està activat.');
 }
 async function syncCalendar(){
  if(role!=='owner'||!informationReady||!daysReady||calendarSyncRunning)return;
@@ -197,7 +198,7 @@ async function payWeek(){await busy(async()=>{
    const payment={id,amount:part.amount,date,from,to,note:'Pagament conjunt'};
    tx.update(api.doc(db,'days',part.date),{paid:cents(d.paid+part.amount),payments:[...(d.payments||[]),payment],updatedBy:user.uid,updatedAt:api.serverTimestamp()});
   }
- });if(notificationDate)await reportChange('payment',notificationDate,'Pagament conjunt: '+money(amount)+' el '+date+' (període '+from+' – '+to+')');notice('Pagament conjunt desat.');
+ });const notified=!notificationDate||await reportChange('payment',notificationDate,'Pagament conjunt: '+money(amount)+' el '+date+' (període '+from+' – '+to+')');notice(notified?'Pagament conjunt desat.':'Pagament desat, però l’avís per correu encara no està activat.');
 });}
 function openDay(date){selected=date;const day=agendaDay(days,schedule,date)||defaultDay(date),owner=role==='owner';$('day-title').textContent=new Date(date+'T12:00:00').toLocaleDateString('ca-ES',{weekday:'long',day:'numeric',month:'long'});$('day-summary').textContent=days.has(date)?'Horari guardat. Pots ajustar l’entrada i la sortida; es recalcularà l’import.':'Dia nou: horari habitual proposat.';
  const defaults=defaultDay(date).turns;
@@ -252,11 +253,11 @@ async function saveDay(close=true){await busy(async()=>{
   summary=summarizeDayChange(current,next);
   if(summary||!snap.exists()||owner&&current.automatic!==false)tx.set(ref,{...next,updatedBy:user.uid,updatedAt:api.serverTimestamp()});
  });
- if(summary)await reportChange('day',selected,summary);
+ const notified=!summary||await reportChange('day',selected,summary);
  if(close)$('day-dialog').close();
- notice(role==='anna'?'Avís desat i compartit amb la família.':'Canvis desats i compartits.');
+ notice(!notified?'Canvis desats, però l’avís per correu encara no està activat.':role==='anna'?'Avís desat i compartit amb la família.':'Canvis desats i compartits.');
 });}
-async function pay(){await busy(async()=>{const amount=cents($('pay-amount').value),date=$('pay-date').value;if(amount<=0||!date)throw Error('Indica un import positiu i una data.');const payment={amount,date,note:'Pagament registrat',id:crypto.randomUUID()};await api.runTransaction(db,async tx=>{const ref=api.doc(db,'days',selected),snap=await tx.get(ref);if(!snap.exists())throw Error('Desa primer el dia i els horaris abans de registrar el pagament.');const d=snap.data(),pending=totals(d).pending;if(amount>pending)throw Error(`L’import supera el pendent (${money(pending)}).`);tx.update(ref,{paid:cents(d.paid+amount),payments:[...(d.payments||[]),payment],updatedBy:user.uid,updatedAt:api.serverTimestamp()});});await reportChange('payment',selected,'Pagament registrat: '+money(amount)+' el '+date);$('day-dialog').close();notice('Pagament registrat.');});}
+async function pay(){await busy(async()=>{const amount=cents($('pay-amount').value),date=$('pay-date').value;if(amount<=0||!date)throw Error('Indica un import positiu i una data.');const payment={amount,date,note:'Pagament registrat',id:crypto.randomUUID()};await api.runTransaction(db,async tx=>{const ref=api.doc(db,'days',selected),snap=await tx.get(ref);if(!snap.exists())throw Error('Desa primer el dia i els horaris abans de registrar el pagament.');const d=snap.data(),pending=totals(d).pending;if(amount>pending)throw Error(`L’import supera el pendent (${money(pending)}).`);tx.update(ref,{paid:cents(d.paid+amount),payments:[...(d.payments||[]),payment],updatedBy:user.uid,updatedAt:api.serverTimestamp()});});const notified=await reportChange('payment',selected,'Pagament registrat: '+money(amount)+' el '+date);$('day-dialog').close();notice(notified?'Pagament registrat.':'Pagament registrat, però l’avís per correu encara no està activat.');});}
 async function start(config){
  try{const base='https://www.gstatic.com/firebasejs/12.19.0/';const [app,a,f]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);authApi=a;api=f;const instance=app.initializeApp(config);db=f.getFirestore(instance);auth=a.getAuth(instance);$('connect').hidden=true;
  a.onAuthStateChanged(auth,async u=>{unsubscribe?.();infoUnsubscribe?.();schedule.clear();informationReady=false;daysReady=false;initialCalendarPositioned=false;$('ana-information').textContent='Carregant la informació…';days.clear();user=u;role=null;$('app').hidden=true;$('logout').hidden=!u;$('login').hidden=!!u;if(!u){$('status').textContent='Accés privat';return;}try{const member=await f.getDoc(f.doc(db,'members',u.uid));role=member.data()?.role;if(!['owner','anna'].includes(role)){const detail=member.exists()?`El document existeix, però role val ${JSON.stringify(role??null)}. Ha de ser el camp role de tipus string amb valor anna per a l’Ana.`:'No existeix el document de permisos amb aquest UID.';throw Error(`Accés pendent. ${detail} Correu: ${u.email}. UID: ${u.uid}. Projecte: ${config.projectId}.`);}$('app').hidden=false;$('owner-settings').hidden=role!=='owner';$('identity').hidden=role==='anna';$('access-title').textContent=role==='anna'?'La teva agenda':'Gestió de l’agenda';$('access-description').textContent=role==='anna'?'Aquí pots consultar els teus horaris, els pagaments i la informació per cuidar la Mar i el Pau. Si un dia no pots venir, toca’l al calendari per avisar-nos. També pots deixar-nos un missatge. No cal que confirmis cada torn de feina: seguim l’horari del calendari, llevat que ens indiquis un canvi.':'Pots ajustar els horaris, registrar pagaments i consultar els missatges de l’Ana. Els imports es calculen amb els horaris guardats fins avui. Els canvis es comparteixen quan tens connexió.';$('identity').textContent=`${u.email} · ${role==='owner'?'Gestió familiar':'Accés de l’Ana'}`;$('greeting').textContent=role==='owner'?'La vostra agenda':'Hola, Ana';$('status').textContent='Carregant agenda…';render();await installCalendarLink();infoUnsubscribe=f.onSnapshot(f.doc(db,'information','ana'),snap=>{const info=snap.exists()?snap.data():null;schedule=scheduleFromInformation(info);informationReady=true;renderInformation(info);render();syncCalendar();},()=>{informationReady=true;syncCalendar();$('ana-information').textContent='Cal publicar les regles actualitzades de Firebase per consultar aquesta secció.';});unsubscribe=f.onSnapshot(f.collection(db,'days'),{includeMetadataChanges:true},snapshot=>{days=new Map(snapshot.docs.filter(d=>isAgendaDay(d.data(),d.id)).map(d=>[d.id,d.data()]));daysReady=!snapshot.metadata.fromCache;$('status').textContent=snapshot.metadata.fromCache?'Connectant… Les dades poden estar pendents d’actualitzar.':'Agenda sincronitzada';render();positionCalendarOnOpen();syncCalendar();},e=>{$('status').textContent='No s’ha pogut sincronitzar l’agenda.';fail(e);});}catch(e){$('status').textContent=e.message;fail(e);}});
