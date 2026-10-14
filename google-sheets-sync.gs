@@ -64,7 +64,7 @@ function crewLoadDays() {
 function crewSafeCell(value) {return typeof value === 'string' && /^[=+\-@]/.test(value) ? "'" + value : value;}
 function crewCents(n) {return Math.round((Number(n)||0)*100)/100;}
 function crewTotals(day, today) {
-  const hours = (day.turns || []).filter(t => t.status === 'planned' && t.attendance !== 'no' && day.date <= today)
+  const hours = (day.turns || []).filter(t => t.status === 'planned' && t.attendance === 'yes' && day.date <= today)
     .reduce((sum,t) => {const minutes = s => Number(s.slice(0,2))*60 + Number(s.slice(3));return sum + (t.start && t.end ? Math.max(0,minutes(t.end)-minutes(t.start))/60 : 0);},0);
   const earned = crewCents(hours * day.rate),paid=crewCents(day.paid);
   return {hours,earned,paid,pending:crewCents(earned-paid)};
