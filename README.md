@@ -17,10 +17,10 @@ Agenda compartida per a Roger i l’Ana: calendari, horaris de matí i tarda, di
 
 - Toca un dia per ajustar l’entrada i la sortida o indicar que no cal venir. Els imports es recalculen amb aquestes hores. La icona 💶 al calendari indica que l’import del dia està completament pagat; si l’horari canvia i queda saldo pendent, desapareix. Per canviar a entrada més tard, canvia l’hora d’entrada.
 - Els comptes de gestió poden editar la planificació, la tarifa, les notes de Roger i els horaris registrats. L’Ana pot confirmar disponibilitat, avisar que no pot venir i escriure el seu missatge. Els permisos s’apliquen a la base de dades, no només als botons.
-- Confirmar que vindrà és opcional i no genera cap import. Només els horaris registrats marcada Sí genera hores a cobrar.
+- L’Ana no ha de confirmar que vindrà: només pot comunicar que no pot venir o deixar un missatge. Roger marca cada torn com a «Fet» manualment; només aquests torns generen hores a cobrar.
 - Els pagaments es registren per dia, amb import i data; s’accepten pagaments parcials. El registre importat conserva els imports distribuïts per dia del full, encara que el pagament original fos conjunt. A Comptes, el formulari «Pagament dels divendres» permet registrar un pagament conjunt d’un període. Proposa la setmana de l’últim divendres i permet canviar les dates. Distribueix l’import entre els dies pendents, començant pel més antic, en una única transacció. La llista de pagaments els agrupa per operació; els importats s’agrupen per data original.
 - El saldo és hores realitzades × tarifa menys pagaments. Si es corregeix després una assistència o tarifa i apareix un saldo negatiu, indica diners pagats de més; es mostra sense amagar-lo.
-- Cada canvi confirmat es comparteix amb la resta de sessions obertes. Cal connexió per desar. Tancar el formulari sense desar descarta els canvis del formulari. No hi ha avisos push ni missatges automàtics.
+- Cada canvi confirmat es comparteix amb la resta de sessions obertes. Cal connexió per desar. Tancar el formulari sense desar descarta els canvis del formulari. Els avisos per correu es poden activar seguint les instruccions de `SYNC.md`; els canvis sempre es desen encara que no estiguin activats.
 - A **Gestió**, descarrega una còpia privada JSON. No pugis l’Excel ni la còpia JSON al repositori públic.
 - Pots afegir l’enllaç a la pantalla d’inici del mòbil des del navegador.
 
@@ -39,3 +39,11 @@ La secció privada Info Ana incorpora les cinc seccions de la pestanya Informaci
 En entrar amb un compte de gestió i rebre les dades del servidor, l’app incorpora els dies laborables que falten des d’avui fins al 22 de juny de 2027. No modifica els dies existents i no genera registres històrics. Els horaris nous són compartits amb Ana i s’inclouen en la sincronització amb Google Sheets. Marca «No cal venir» per cancel·lar qualsevol torn, inclosos festius o vacances no registrats.
 
 Els dies automàtics porten una marca interna `automatic`. Quan la família els edita, deixa de ser un horari automàtic. En importar l’Excel, només es poden substituir dies automàtics intactes; es conserven els modificats, els pagaments, les respostes i els missatges d’Ana.
+
+## Manual attendance and email notifications
+
+**Attendance:** New shifts start as **Pendent de confirmar**, not **Fet**. Only Roger can select **Fet** or **No ha vingut** independently for morning and afternoon. Planned shifts are not counted as worked hours or payments until marked **Fet**. Historical `attendance: yes` records are preserved; the app cannot know whether they were previously confirmed or auto-marked, so Roger should review any old shifts that appear incorrectly completed. Payments already registered are not deleted.
+
+**Email notifications:** Roger's manual schedule, attendance, instructions, payment, and holiday changes generate events addressed **to Anna**. Anna's unavailability reports and messages generate events addressed **to Roger**. The editor does not get an email about their own changes. Default schedule generation, initial imports, and periodic spreadsheet refreshes do not send messages.
+
+Delivery uses Google Apps Script and `MailApp`, usually within five minutes, grouping adjacent changes from the same person. The app stores notification events in private Firestore, but does not send mail itself or store email credentials in the public repository. Until the Firestore rules and Apps Script trigger are installed, the app still saves changes, but email alerts will not work. To enable them, follow [the notification setup in SYNC.md](SYNC.md#email-notifications).
