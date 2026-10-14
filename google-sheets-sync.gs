@@ -141,6 +141,13 @@ function parseInformationRows(rows){
 }
 
 
+// One-click setup from the Apps Script editor: set script properties
+// crewAnnaEmail and crewRogerEmail first, then run setupCrewNotifications.
+function setupCrewNotifications() {
+  const props=PropertiesService.getScriptProperties();
+  installCrewNotifications(props.getProperty('crewAnnaEmail'),props.getProperty('crewRogerEmail'));
+}
+
 // Email notices for deliberate app edits. Runs with the owner's Apps Script
 // authorization; no email credentials or service account secrets are published.
 function installCrewNotifications(annaEmail, rogerEmail) {
