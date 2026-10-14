@@ -22,12 +22,14 @@ assert.equal(a.paid,2.5);assert.equal(b.paid,0);
 console.log('Pagaments conjunts: import exacte, pagament parcial i límit de saldo OK');
 
 const scheduled=defaultDay('2026-09-28');
+assert.equal(totals(scheduled,'2026-09-28').earned,0); // A scheduled shift is not yet done.
+scheduled.turns[0].attendance='yes'; // Roger explicitly confirms attendance.
 assert.equal(totals(scheduled,'2026-09-28').earned,12.5);
 scheduled.turns[0].end='09:30';assert.equal(totals(scheduled,'2026-09-28').earned,17.5);
 scheduled.turns[0].status='not-needed';assert.equal(totals(scheduled,'2026-09-28').earned,0);
 scheduled.turns[0].status='unavailable';assert.equal(totals(scheduled,'2026-09-28').earned,0);
 scheduled.turns[0].status='planned';scheduled.turns[0].attendance='no';assert.equal(totals(scheduled,'2026-09-28').earned,0);
-console.log('Horaris: còmput automàtic, canvis d’hora, futur i cancel·lacions OK');
+console.log('Horaris: confirmació manual, canvis d’hora, futur i cancel·lacions OK');
 
 assert.equal(isAgendaDay({role:'anna'},'test-user-uid'),false);
 assert.equal(isAgendaDay(defaultDay('2026-10-05'),'2026-10-05'),true);
