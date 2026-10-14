@@ -83,7 +83,7 @@ async function closePeriod(){await busy(async()=>{
    if(next){tx.set(ref,{...next,updatedBy:uid,updatedAt:api.serverTimestamp()});count++;}
   }
  });
- month=new Date(from+'T12:00:00');render();notice(count?`${count} dies marcats com a «No cal venir».`:'Aquest període no té torns previstos.');
+ if(count)await reportChange('vacation',from,'Període '+from+' – '+to+': '+reason);month=new Date(from+'T12:00:00');render();notice(count?`${count} dies marcats com a «No cal venir».`:'Aquest període no té torns previstos.');
 });}
 async function reopenPeriod(id){await busy(async()=>{
  if(role!=='owner')throw Error('Cal un compte de gestió.');
@@ -93,7 +93,7 @@ async function reopenPeriod(id){await busy(async()=>{
   const current=[];for(const d of records){const ref=api.doc(db,'days',d.date);current.push({ref,snap:await tx.get(ref)});}
   if(user?.uid!==uid||role!=='owner')throw Error('La sessió ha canviat. Torna a entrar.');
   for(const {ref,snap} of current){const next=reopenDay(snap.exists()?snap.data():null,id);if(next)tx.set(ref,{...next,updatedBy:uid,updatedAt:api.serverTimestamp()});}
- });notice('S’ha recuperat l’horari anterior del període.');
+ });await reportChange('vacation',records[0].date,'Horari recuperat: '+records.length+' dia(es), període '+records[0].date+' – '+records.at(-1).date);notice('S’ha recuperat l’horari anterior del període.');
 });}
 async function installCalendarLink(){
  const encoded=new URLSearchParams(location.hash.slice(1)).get('calendar');
@@ -108,6 +108,7 @@ async function installCalendarLink(){
   const section={title:'Calendari de Registro',rows:[...merged.values()].sort((a,b)=>a.cells[0].localeCompare(b.cells[0]))};
   tx.set(ref,{...info,sections:[...info.sections.filter(s=>s.title!==section.title),section],updatedBy:uid,updatedAt:api.serverTimestamp()});
  });
+ await reportChange('schedule',rows[0][0],'Calendari acordat: '+rows.map(r=>r[0]+' ('+r[3]+')').join(', '),'information');
  history.replaceState(null,'',location.pathname+location.search);
  notice('Dates acordades i festius incorporats a l’agenda privada.');
 }
@@ -187,14 +188,16 @@ async function payWeek(){await busy(async()=>{
  if(!from||!to||from>to||!date||amount<=0)throw Error('Revisa el període, la data i l’import.');
  const records=periodDays();if(records.length>100)throw Error('Tria un període de com a màxim 100 dies registrats.');
  const id=crypto.randomUUID();
+ let notificationDate='';
  await api.runTransaction(db,async tx=>{
   const snapshots=[];for(const d of records)snapshots.push(await tx.get(api.doc(db,'days',d.date)));
   const current=snapshots.filter(s=>s.exists()).map(s=>s.data()),allocations=allocatePayment(current,amount);
+  notificationDate=allocations[0]?.date||'';
   for(const part of allocations){const d=current.find(d=>d.date===part.date);
    const payment={id,amount:part.amount,date,from,to,note:'Pagament conjunt'};
    tx.update(api.doc(db,'days',part.date),{paid:cents(d.paid+part.amount),payments:[...(d.payments||[]),payment],updatedBy:user.uid,updatedAt:api.serverTimestamp()});
   }
- });notice('Pagament conjunt desat.');
+ });if(notificationDate)await reportChange('payment',notificationDate,'Pagament conjunt: '+money(amount)+' el '+date+' (període '+from+' – '+to+')');notice('Pagament conjunt desat.');
 });}
 function openDay(date){selected=date;const day=agendaDay(days,schedule,date)||defaultDay(date),owner=role==='owner';$('day-title').textContent=new Date(date+'T12:00:00').toLocaleDateString('ca-ES',{weekday:'long',day:'numeric',month:'long'});$('day-summary').textContent=days.has(date)?'Horari guardat. Pots ajustar l’entrada i la sortida; es recalcularà l’import.':'Dia nou: horari habitual proposat.';
  const defaults=defaultDay(date).turns;
