@@ -1,4 +1,4 @@
-import {defaultDay,localDate,untouchedDefault,cents} from './domain.mjs?v=12';
+import {defaultDay,localDate,untouchedDefault,cents} from './domain.mjs?v=13';
 
 // Calendar data travels through the existing private Información sync.
 export function scheduleFromInformation(info){
