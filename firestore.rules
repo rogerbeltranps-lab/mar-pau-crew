@@ -7,7 +7,7 @@ service cloud.firestore {
   function sameTurn(a, b) {
    return a.id == b.id && a.start == b.start && a.end == b.end && a.attendance == b.attendance
     && b.keys().hasOnly(['id','start','end','status','attendance','confirmation'])
-    && b.confirmation in ['pending','yes','no']
+    && (b.confirmation in ['pending','no'] || b.confirmation == a.confirmation)
     && ((a.status == 'not-needed' && b == a)
      || (a.status != 'not-needed' && b.status in ['planned','unavailable']
       && (b.status == a.status || (b.status == 'unavailable' && b.confirmation == 'no') || (a.status == 'unavailable' && b.status == 'planned'))));
@@ -38,6 +38,47 @@ service cloud.firestore {
     && request.resource.data.updatedBy == request.auth.uid
     && request.resource.data.updatedAt == request.time;
    allow delete: if false;
+  }
+
+  // The web app saves its real changes first. Email events may be created
+  // only by the member who just saved the corresponding private record.
+  function recentOwnEdit(path) {
+   return exists(path)
+    && get(path).data.updatedBy == request.auth.uid
+    && get(path).data.updatedAt is timestamp
+    && get(path).data.updatedAt >= request.time - duration.value(3, 'm');
+  }
+  match /notifications/{id} {
+   allow read, update, delete: if false;
+   allow create: if member()
+    && request.resource.data.keys().hasOnly(['actorUid','actorRole','kind','date','source','summary','createdAt'])
+    && request.resource.data.keys().hasAll(['actorUid','actorRole','kind','date','source','summary','createdAt'])
+    && request.resource.data.actorUid == request.auth.uid
+    && request.resource.data.actorRole == get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role
+    && request.resource.data.createdAt == request.time
+    && request.resource.data.date is string
+    && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}
+   allow read: if owner() || anna();
+   allow create: if owner() && validDay(date);
+   allow update: if validDay(date) && (owner() || (anna()
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['annaNotes','turns','updatedAt','updatedBy'])
+    && annaTurns(resource.data.turns, request.resource.data.turns)));
+   allow delete: if false;
+  }
+ }
+}
+)
+    && request.resource.data.summary is string
+    && request.resource.data.summary.size() > 0 && request.resource.data.summary.size() <= 900
+    && request.resource.data.kind in ['day','vacation','payment','schedule']
+    && ((owner() && request.resource.data.kind in ['day','vacation','payment','schedule'])
+     || (anna() && request.resource.data.kind == 'day'))
+    && ((request.resource.data.source == 'days'
+      && request.resource.data.kind != 'schedule'
+      && recentOwnEdit(/databases/$(database)/documents/days/$(request.resource.data.date)))
+     || (request.resource.data.source == 'information'
+      && owner() && request.resource.data.kind == 'schedule'
+      && recentOwnEdit(/databases/$(database)/documents/information/ana)));
   }
   match /days/{date} {
    allow read: if owner() || anna();
