@@ -64,7 +64,7 @@ function crewLoadDays() {
 function crewSafeCell(value) {return typeof value === 'string' && /^[=+\-@]/.test(value) ? "'" + value : value;}
 function crewCents(n) {return Math.round((Number(n)||0)*100)/100;}
 function crewTotals(day, today) {
-  const hours = (day.turns || []).filter(t => t.status === 'planned' && t.attendance === 'yes' && day.date <= today)
+  const hours = (day.turns || []).filter(t => (t.status === 'planned' || t.status === 'coming') && t.attendance === 'yes' && day.date <= today)
     .reduce((sum,t) => {const minutes = s => Number(s.slice(0,2))*60 + Number(s.slice(3));return sum + (t.start && t.end ? Math.max(0,minutes(t.end)-minutes(t.start))/60 : 0);},0);
   const earned = crewCents(hours * day.rate),paid=crewCents(day.paid);
   return {hours,earned,paid,pending:crewCents(earned-paid)};
@@ -72,7 +72,7 @@ function crewTotals(day, today) {
 function crewOutput(days, today) {
   const groups = new Map();
   const register = days.map(day => {
-    const sums=crewTotals(day,today),turn=id=>{const t=(day.turns||[]).find(t=>t.id===id);return t ? t.start+'–'+t.end+' · '+(t.status==='planned'&&t.attendance==='no'?'No va venir':({'planned':'Ve','not-needed':'No cal','unavailable':'No pot'}[t.status]||t.status)) : '';};
+    const sums=crewTotals(day,today),turn=id=>{const t=(day.turns||[]).find(t=>t.id===id);return t ? t.start+'–'+t.end+' · '+((t.status==='planned'||t.status==='coming')&&t.attendance==='no'?'No va venir':({'planned':'Previst','coming':'Ve','not-needed':'No cal','unavailable':'No pot'}[t.status]||t.status)) : '';};
     (day.payments || []).forEach((p,i)=>{
       const key=p.id || (p.date ? 'import-'+p.date : 'import-'+day.date+'-'+i);
       const g=groups.get(key)||{id:key,date:p.date||'',from:p.from||'',to:p.to||'',amount:0,days:[],note:p.note||''};
