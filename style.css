@@ -26,3 +26,5 @@
 
 .day-error{background:#fff0ec;border:1px solid #c56b58;border-radius:10px;color:#8d2f23;font-weight:600;line-height:1.45;padding:12px 14px;margin:12px 0}
 [data-theme=dark] .day-error{background:#482920;color:#ffdfd6;border-color:#cd8273}
+.toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+@media(max-width:540px){#app>.toolbar{flex-wrap:wrap}.toolbar-actions{margin-left:auto}.toolbar-actions button{padding:10px 12px}}
