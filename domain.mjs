@@ -1,11 +1,14 @@
 export const isScheduledStatus=status=>status==='planned'||status==='coming';
+// A confirmed "Ve" on today or a past day is worked even for older records saved as pending.
+export const isWorkedTurn=(turn,date,today=localDate())=>isScheduledStatus(turn.status)&&date<=today
+ && (turn.attendance==='yes'||(turn.status==='coming'&&turn.attendance!=='no'&&turn.confirmation!=='no'));
 export const cents=n=>Math.round((Number(n)||0)*100)/100;
 export function isAgendaDay(day,id=day?.date){return !!day&&/^\d{4}-\d{2}-\d{2}$/.test(day.date)&&day.date===id&&Array.isArray(day.turns);}
 export function localDate(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 export function excelDate(v){if(v===''||v==null)return '';if(/^\d+(\.\d+)?$/.test(String(v)))return new Date(Date.UTC(1899,11,30)+Number(v)*86400000).toISOString().slice(0,10);const m=String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:String(v);}
 export function excelTime(v){if(v===''||v==null)return '';if(!/^\d+(\.\d+)?$/.test(String(v)))return String(v);const m=Math.round(Number(v)*1440);return `${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;}
 export function hours(turn){if(!turn.start||!turn.end)return 0;const minutes=t=>Number(t.slice(0,2))*60+Number(t.slice(3));return Math.max(0,minutes(turn.end)-minutes(turn.start))/60;}
-export function totals(day,today=localDate()){const h=(day.turns||[]).filter(t=>isScheduledStatus(t.status)&&t.attendance==='yes'&&day.date<=today).reduce((s,t)=>s+hours(t),0);const earned=cents(h*day.rate);return {hours:h,earned,paid:cents(day.paid),pending:cents(earned-cents(day.paid))};}
+export function totals(day,today=localDate()){const h=(day.turns||[]).filter(t=>isWorkedTurn(t,day.date,today)).reduce((s,t)=>s+hours(t),0);const earned=cents(h*day.rate);return {hours:h,earned,paid:cents(day.paid),pending:cents(earned-cents(day.paid))};}
 export function fridayPeriod(date=localDate()){
  const friday=new Date(date+'T12:00:00');friday.setDate(friday.getDate()-(friday.getDay()+2)%7);
  const monday=new Date(friday);monday.setDate(monday.getDate()-4);
