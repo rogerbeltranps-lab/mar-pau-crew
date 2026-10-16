@@ -1,5 +1,5 @@
 import {firebaseConfig} from './firebase-config.js';
-import {cents,localDate,defaultDay,totals,hours,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn,isScheduledStatus} from './domain.mjs?v=15';
+import {cents,localDate,defaultDay,totals,hours,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn,isScheduledStatus,isWorkedTurn} from './domain.mjs?v=16';
 import {scheduleFromInformation,reconcileSchedule,agendaDay,agendaDays,periodDates,closeDay,reopenDay,confirmedRows} from './schedule.mjs?v=15';
 import {readExcel} from './excel.js';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -10,18 +10,18 @@ const errorText=e=>e.code==='permission-denied'?'Aquest compte no té permís. R
 const fail=e=>notice(errorText(e));
 function daySaveError(e){const alert=$('day-error');alert.textContent=errorText(e);alert.hidden=false;alert.scrollIntoView({behavior:'smooth',block:'start'});}
 
-function turnDescription(t){
+function turnDescription(t,date){
  if(!t)return 'Sense torn';
  if(t.status==='not-needed')return 'No cal venir';
  if(t.status==='unavailable'||t.confirmation==='no')return 'No pot venir';
- const attendance=t.attendance==='yes'?'Fet':t.attendance==='no'?'No ha vingut':t.status==='coming'?'Ve a l’horari indicat':'Pendent de confirmar';
+ const attendance=isWorkedTurn(t,date)?'Fet':t.attendance==='no'?'No ha vingut':t.status==='coming'?'Ve a l’horari indicat':'Pendent de confirmar';
  return (t.start&&t.end?t.start+'–'+t.end+' · ':'')+attendance;
 }
 function summarizeDayChange(before,after){
  const changes=[];
  for(const id of ['morning','afternoon']){
   const a=(before.turns||[]).find(t=>t.id===id),b=(after.turns||[]).find(t=>t.id===id);
-  if(JSON.stringify(a||null)!==JSON.stringify(b||null))changes.push(labels[id]+': '+turnDescription(a)+' → '+turnDescription(b));
+  if(JSON.stringify(a||null)!==JSON.stringify(b||null))changes.push(labels[id]+': '+turnDescription(a,before.date)+' → '+turnDescription(b,after.date));
  }
  if(before.rate!==after.rate)changes.push('Tarifa: '+before.rate+' € → '+after.rate+' €');
  if((before.notes||'')!==(after.notes||''))changes.push('Instruccions de Roger: '+(after.notes?.trim()||'(esborrades)').slice(0,300));
@@ -51,7 +51,7 @@ async function busy(action,onError=fail){if(saving)return;saving=true;document.q
 function render(){
  $('month-title').textContent=month.toLocaleDateString('ca-ES',{month:'long',year:'numeric'});const year=month.getFullYear(),m=month.getMonth(),count=new Date(year,m+1,0).getDate(),offset=(new Date(year,m,1).getDay()+6)%7;
  let html=['Dl','Dt','Dc','Dj','Dv','Ds','Dg'].map(s=>`<div class="weekday">${s}</div>`).join('')+'<div></div>'.repeat(offset);
- for(let i=1;i<=count;i++){const date=localDate(new Date(year,m,i)),day=agendaDay(days,schedule,date),t=day?.turns||[],done=t.some(x=>isScheduledStatus(x.status)&&x.attendance==='yes')&&t.filter(x=>isScheduledStatus(x.status)).every(x=>x.attendance==='yes'),unavailable=t.some(t=>t.status==='unavailable'||isScheduledStatus(t.status)&&(t.attendance==='no'||t.confirmation==='no')),hasAvailableTurn=t.some(t=>isScheduledStatus(t.status)&&t.attendance!=='no'&&t.confirmation!=='no'),fullUnavailable=unavailable&&!hasAvailableTurn,cancelled=!!day?.closure||t.length&&t.every(t=>t.status==='not-needed'),paid=!!day&&totals(day).paid>0&&totals(day).pending<=0&&totals(day).earned>0,state=fullUnavailable?'unavailable':done?'done':cancelled?'cancelled':t.length?'planned':'',partialMorning=!cancelled&&t.some(x=>x.id==='morning'&&x.status==='not-needed'),partialAfternoon=!cancelled&&t.some(x=>x.id==='afternoon'&&x.status==='not-needed'),partialClass=partialMorning?'partial-not-needed-morning':partialAfternoon?'partial-not-needed-afternoon':'';html+=`<button class="date ${state} ${partialClass} ${date===localDate()?'today':''}" data-date="${date}" aria-label="${date}${done?', horari comptabilitzat':''}${paid?', pagat':''}"><b>${i}${paid?' <span title="Pagat">💶</span>':''}</b><small>${fullUnavailable?'× No pot':cancelled?'− No cal':''}</small>${day?.closure?`<small class="calendar-reason">${esc(day.closure.reason)}</small>`:''}${t.filter(t=>(isScheduledStatus(t.status)&&t.attendance!=='no')||t.status==='unavailable'||isScheduledStatus(t.status)&&(t.attendance==='no'||t.confirmation==='no')||(t.status==='not-needed'&&!cancelled)).map(t=>`<small class="calendar-turn ${t.status==='not-needed'?'turn-not-needed':t.status==='unavailable'||isScheduledStatus(t.status)&&(t.attendance==='no'||t.confirmation==='no')?'turn-unavailable':''}"><span>${t.id==='morning'?'☀️ Matí':'🌇 Tarda'}</span><span>${isScheduledStatus(t.status)&&t.attendance==='yes'?'✓ Fet':isScheduledStatus(t.status)&&t.attendance==='no'?'× No ha vingut':t.status==='unavailable'||isScheduledStatus(t.status)&&t.confirmation==='no'?'× No pot venir':t.status==='coming'?'● Ve':t.status==='planned'?'● Prevista':t.status==='not-needed'?'− No cal venir':''}</span><span>${t.status==='not-needed'?'No cal venir':`${esc(t.start)}–<wbr>${esc(t.end)}`}</span></small>`).join('')}${t.some(t=>isScheduledStatus(t.status)&&t.attendance!=='no')?`<small class="calendar-hours">${t.filter(t=>isScheduledStatus(t.status)&&t.attendance!=='no').reduce((sum,t)=>sum+hours(t),0).toLocaleString('ca-ES',{maximumFractionDigits:2})} h</small>`:''}</button>`;}
+ for(let i=1;i<=count;i++){const date=localDate(new Date(year,m,i)),day=agendaDay(days,schedule,date),t=day?.turns||[],done=t.some(x=>isWorkedTurn(x,date))&&t.filter(x=>isScheduledStatus(x.status)).every(x=>isWorkedTurn(x,date)),unavailable=t.some(t=>t.status==='unavailable'||isScheduledStatus(t.status)&&(t.attendance==='no'||t.confirmation==='no')),hasAvailableTurn=t.some(t=>isScheduledStatus(t.status)&&t.attendance!=='no'&&t.confirmation!=='no'),fullUnavailable=unavailable&&!hasAvailableTurn,cancelled=!!day?.closure||t.length&&t.every(t=>t.status==='not-needed'),paid=!!day&&totals(day).paid>0&&totals(day).pending<=0&&totals(day).earned>0,state=fullUnavailable?'unavailable':done?'done':cancelled?'cancelled':t.length?'planned':'',partialMorning=!cancelled&&t.some(x=>x.id==='morning'&&x.status==='not-needed'),partialAfternoon=!cancelled&&t.some(x=>x.id==='afternoon'&&x.status==='not-needed'),partialClass=partialMorning?'partial-not-needed-morning':partialAfternoon?'partial-not-needed-afternoon':'';html+=`<button class="date ${state} ${partialClass} ${date===localDate()?'today':''}" data-date="${date}" aria-label="${date}${done?', horari comptabilitzat':''}${paid?', pagat':''}"><b>${i}${paid?' <span title="Pagat">💶</span>':''}</b><small>${fullUnavailable?'× No pot':cancelled?'− No cal':''}</small>${day?.closure?`<small class="calendar-reason">${esc(day.closure.reason)}</small>`:''}${t.filter(t=>(isScheduledStatus(t.status)&&t.attendance!=='no')||t.status==='unavailable'||isScheduledStatus(t.status)&&(t.attendance==='no'||t.confirmation==='no')||(t.status==='not-needed'&&!cancelled)).map(t=>`<small class="calendar-turn ${t.status==='not-needed'?'turn-not-needed':t.status==='unavailable'||isScheduledStatus(t.status)&&(t.attendance==='no'||t.confirmation==='no')?'turn-unavailable':''}"><span>${t.id==='morning'?'☀️ Matí':'🌇 Tarda'}</span><span>${isWorkedTurn(t,date)?'✓ Fet':isScheduledStatus(t.status)&&t.attendance==='no'?'× No ha vingut':t.status==='unavailable'||isScheduledStatus(t.status)&&t.confirmation==='no'?'× No pot venir':t.status==='coming'?'● Ve':t.status==='planned'?'● Prevista':t.status==='not-needed'?'− No cal venir':''}</span><span>${t.status==='not-needed'?'No cal venir':`${esc(t.start)}–<wbr>${esc(t.end)}`}</span></small>`).join('')}${t.some(t=>isScheduledStatus(t.status)&&t.attendance!=='no')?`<small class="calendar-hours">${t.filter(t=>isScheduledStatus(t.status)&&t.attendance!=='no').reduce((sum,t)=>sum+hours(t),0).toLocaleString('ca-ES',{maximumFractionDigits:2})} h</small>`:''}</button>`;}
  $('calendar').innerHTML=html;
  try{renderAnaAlerts();}catch(e){console.error('renderAnaAlerts',e);}
  try{renderClosures();}catch(e){console.error('renderClosures',e);}
@@ -209,11 +209,11 @@ function openDay(date){selected=date;$('day-error').hidden=true;const day=agenda
  document.querySelectorAll('[data-turn]').forEach((el,i)=>{
   const t=base[i],statusEl=el.querySelector('[data-field="status"]'),attendanceEl=el.querySelector('[data-field="attendance"]');
   statusEl.value=t.status;el.querySelector('[data-field="confirmation"]').value=t.confirmation||'pending';
-  if(attendanceEl){attendanceEl.value=t.attendance||'pending';attendanceEl.disabled=!isScheduledStatus(t.status);}
+  if(attendanceEl){attendanceEl.value=isWorkedTurn(t,date)?'yes':t.attendance||'pending';attendanceEl.disabled=!isScheduledStatus(t.status);}
   el.querySelector('[data-field="confirmation"]').disabled=owner||t.status==='none'||t.status==='not-needed';
   if(owner){
    statusEl.onchange=()=>{
-    if(attendanceEl){attendanceEl.disabled=!isScheduledStatus(statusEl.value);attendanceEl.value='pending';}
+    if(attendanceEl){attendanceEl.disabled=!isScheduledStatus(statusEl.value);attendanceEl.value=statusEl.value==='coming'&&selected<=localDate()?'yes':'pending';}
     if(!isScheduledStatus(statusEl.value))return;
     const habitual=defaults.find(x=>x.id===el.dataset.turn);if(!habitual)return;
     const start=el.querySelector('[data-field="start"]'),end=el.querySelector('[data-field="end"]');
@@ -230,7 +230,7 @@ async function saveDay(close=true){$('day-error').hidden=true;await busy(async()
   const value=k=>el.querySelector(`[data-field="${k}"]`)?.value;
   const status=value('status');if(status==='none')continue;
   const t={id:el.dataset.turn,start:value('start'),end:value('end'),status,
-   attendance:owner&&isScheduledStatus(status)?value('attendance'):'pending',confirmation:value('confirmation')};
+   attendance:owner&&isScheduledStatus(status)?(status==='coming'&&selected<=localDate()&&value('attendance')==='pending'?'yes':value('attendance')):'pending',confirmation:value('confirmation')};
   if(owner&&isScheduledStatus(status)){const shift=labels[t.id]||'Torn';if(!t.start)throw Error(shift+': falta l’hora d’entrada.');if(!t.end)throw Error(shift+': falta l’hora de sortida.');if(hours(t)<=0)throw Error(shift+': la sortida ha de ser posterior a l’entrada.');}
   turns.push(t);
  }
