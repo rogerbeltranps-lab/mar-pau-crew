@@ -38,3 +38,10 @@
 .notification-meta time{color:#60756d}
 .notification-row p{margin:8px 0 4px;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
 [data-theme=dark] .notification-meta time{color:#a5bdb3}
+
+/* Compact, native mobile-friendly section dropdown (replaces the five nav buttons). */
+.section-nav{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin:12px 0 4px;flex-wrap:nowrap}
+.section-nav label{margin:0;flex:none;color:#60756d;font-size:.9rem}
+.section-nav select{width:min(100%,280px);max-width:calc(100% - 75px);margin:0;font-weight:700;border-radius:12px;min-height:46px;padding:10px 14px;cursor:pointer;border:1px solid var(--line)}
+[data-theme=dark] .section-nav label{color:#97aea4}
+@media(max-width:540px){.section-nav{justify-content:space-between;margin:8px 0 2px}.section-nav select{flex:1;max-width:none}}
