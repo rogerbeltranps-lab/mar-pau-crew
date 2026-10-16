@@ -23,3 +23,6 @@
 [data-theme=dark] .calendar-hours{color:#9fd3c2}[data-theme=dark] .calendar-reason{color:#c9bba5}
 [data-theme=dark] #ana-alerts{background:#3a2b1e;border-color:#6b4f35}[data-theme=dark] .bad{color:#f0a08c}
 [data-theme=dark] dialog::backdrop{background:#000a}[data-theme=dark] #toast{background:#2a4a40}
+
+.day-error{background:#fff0ec;border:1px solid #c56b58;border-radius:10px;color:#8d2f23;font-weight:600;line-height:1.45;padding:12px 14px;margin:12px 0}
+[data-theme=dark] .day-error{background:#482920;color:#ffdfd6;border-color:#cd8273}
