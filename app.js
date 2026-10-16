@@ -1,5 +1,5 @@
 import {firebaseConfig} from './firebase-config.js';
-import {cents,localDate,defaultDay,totals,hours,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault} from './domain.mjs?v=13';
+import {cents,localDate,defaultDay,totals,hours,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn} from './domain.mjs?v=14';
 import {scheduleFromInformation,reconcileSchedule,agendaDay,agendaDays,periodDates,closeDay,reopenDay,confirmedRows} from './schedule.mjs?v=13';
 import {readExcel} from './excel.js';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -241,7 +241,7 @@ async function saveDay(close=true){await busy(async()=>{
   if(!owner&&!snap.exists())throw Error('Roger ha d’obrir l’app per sincronitzar aquest horari abans que puguis avisar.');
   let next;
   if(owner){
-   next={...current,automatic:false,turns:turns.map(t=>{const old=current.turns.find(x=>x.id===t.id);return {...t,confirmation:old?.confirmation||'pending'};}),rate,notes:$('notes').value};
+   next={...current,automatic:false,turns:turns.map(t=>mergeOwnerTurn(t,current.turns.find(x=>x.id===t.id))),rate,notes:$('notes').value};
    delete next.closure;delete next.closurePreviousTurns;
   }else{
    next={...current,annaNotes:$('anna-notes').value,turns:current.turns.map(t=>{
