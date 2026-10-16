@@ -49,7 +49,10 @@ service cloud.firestore {
     && get(path).data.updatedAt >= request.time - duration.value(3, 'm');
   }
   match /notifications/{id} {
-   allow read, update, delete: if false;
+   // Each user sees only events created by the other role.
+   allow get, list: if (owner() && resource.data.actorRole == 'anna')
+    || (anna() && resource.data.actorRole == 'owner');
+   allow update, delete: if false;
    allow create: if member()
     && request.resource.data.keys().hasOnly(['actorUid','actorRole','kind','date','source','summary','createdAt'])
     && request.resource.data.keys().hasAll(['actorUid','actorRole','kind','date','source','summary','createdAt'])
@@ -69,6 +72,16 @@ service cloud.firestore {
      || (request.resource.data.source == 'information'
       && owner() && request.resource.data.kind == 'schedule'
       && recentOwnEdit(/databases/$(database)/documents/information/ana)));
+  }
+  // Read receipts are editable only by the account that owns them.
+  match /notificationViews/{uid} {
+   allow get: if member() && request.auth.uid == uid;
+   allow list, delete: if false;
+   allow create, update: if member()
+    && request.auth.uid == uid
+    && request.resource.data.keys().hasOnly(['lastSeenAt'])
+    && request.resource.data.keys().hasAll(['lastSeenAt'])
+    && request.resource.data.lastSeenAt == request.time;
   }
   match /days/{date} {
    allow read: if owner() || anna();

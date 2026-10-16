@@ -28,3 +28,13 @@
 [data-theme=dark] .day-error{background:#482920;color:#ffdfd6;border-color:#cd8273}
 .toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 @media(max-width:540px){#app>.toolbar{flex-wrap:wrap}.toolbar-actions{margin-left:auto}.toolbar-actions button{padding:10px 12px}}
+
+.notification-count{display:inline-block;background:#b64236;color:#fff;border-radius:99px;font-size:.75rem;min-width:22px;padding:2px 6px;text-align:center}
+#notification-panel h3{margin:0}
+.notification-row{padding:12px 0;border-top:1px solid var(--line)}
+.notification-row.unread{border-left:3px solid #b64236;padding-left:12px}
+.notification-row:first-child{margin-top:12px}
+.notification-meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.85rem}
+.notification-meta time{color:#60756d}
+.notification-row p{margin:8px 0 4px;line-height:1.5;white-space:pre-line;overflow-wrap:anywhere}
+[data-theme=dark] .notification-meta time{color:#a5bdb3}

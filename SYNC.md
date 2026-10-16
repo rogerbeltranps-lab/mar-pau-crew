@@ -41,3 +41,7 @@ After publishing the GitHub Pages changes, finish the **one-time private setup**
 The first setup begins notifications from the setup time: old edits will not be emailed retroactively. Edits are saved even if email notification is not configured; the app warns when it cannot enqueue an event. Only manual actions produce events; automatically generated schedule days and sheet synchronization do not. To pause emails without affecting synchronization, run `stopCrewNotifications`; re-running `setupCrewNotifications` restores the trigger without resetting the delivery cursor.
 
 Email credentials and addresses belong in private Apps Script properties, **not in GitHub**. Sending uses the current Google Apps Script MailApp quota and does not require a paid mail API.
+
+## In-app notifications
+
+Publish the latest `firestore.rules` in Firebase Console → Firestore Database → Rules. The 🔔 Avisos button displays private, real-time notifications in the recipient's account and syncs read state between devices; no Apps Script setup is required. Check payment and schedule edits as Roger, and unavailability or message edits as Ana. These are in-app notifications while the app is open, not system push alerts when closed. Email delivery remains optional and requires the separate Apps Script setup above.
