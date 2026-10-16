@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn,isScheduledStatus} from './domain.mjs';
+import {excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn,isScheduledStatus,isWorkedTurn} from './domain.mjs';
 assert.equal(excelDate('46279.0'),'2026-09-14');
 assert.equal(excelDate('19/09/2026'),'2026-09-19');
 assert.equal(excelDate('46063.0'),'2026-02-10');
@@ -55,13 +55,21 @@ assert.equal(mergeOwnerTurn({...annaCannotCome,status:'not-needed'},annaCannotCo
 assert.equal(mergeOwnerTurn({...annaNowComes}, {...annaNowComes,confirmation:'yes'}).confirmation,'yes');
 console.log('Canviar de «No pot venir» a «Ve» neteja avisos obsolets: OK');
 
-// «Previst» i «Ve a l'horari indicat» són previsions diferents, no assistència real.
+// «Previst» és una previsió. «Ve» confirma la feina feta en dies d'avui o passats.
 assert.equal(isScheduledStatus('planned'),true);
 assert.equal(isScheduledStatus('coming'),true);
 assert.equal(isScheduledStatus('unavailable'),false);
 const comingDay=defaultDay('2026-10-15');comingDay.turns[0].status='coming';
-assert.equal(totals(comingDay,'2026-10-15').earned,0);
+assert.equal(totals(comingDay,'2026-10-14').earned,0); // A future date never creates a debt.
+assert.equal(totals(comingDay,'2026-10-15').earned,10); // Existing pending 'coming' days count immediately.
+assert.equal(isWorkedTurn(comingDay.turns[0],'2026-10-15','2026-10-15'),true);
+assert.equal(isWorkedTurn(comingDay.turns[0],'2026-10-15','2026-10-14'),false);
 comingDay.turns[0].attendance='yes';
 assert.equal(totals(comingDay,'2026-10-15').earned,10);
+comingDay.turns[0].attendance='no';
+assert.equal(totals(comingDay,'2026-10-15').earned,0); // Explicit no-show overrides 'Ve'.
+comingDay.turns[0].attendance='pending';
+comingDay.turns[0].confirmation='no';
+assert.equal(totals(comingDay,'2026-10-15').earned,0); // Ana's no-show warning must not bill.
 assert.equal(mergeOwnerTurn({...annaCannotCome,status:'coming'},annaCannotCome).confirmation,'pending');
 console.log('Previst i Ve separats, confirmació manual i cobrament: OK');
