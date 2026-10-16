@@ -1,4 +1,4 @@
-import {defaultDay,localDate,untouchedDefault,cents} from './domain.mjs?v=13';
+import {defaultDay,localDate,untouchedDefault,cents} from './domain.mjs?v=15';
 
 // Calendar data travels through the existing private Información sync.
 export function scheduleFromInformation(info){
@@ -37,7 +37,7 @@ export function reconcileSchedule(current,planned,today=localDate()){
  }else turns=planned.turns.map(t=>{
   const old=current.turns.find(o=>o.id===t.id);
   return {...t,confirmation:old?.confirmation||'pending',
-   ...(t.status==='planned'&&old?.status==='unavailable'?{status:'unavailable'}:{})};
+   ...(t.status==='planned'&&old?.status==='unavailable'?{status:'unavailable'}:t.status==='planned'&&old?.status==='coming'&&old.start===t.start&&old.end===t.end?{status:'coming'}:{})};
  });
  return {...current,turns,calendarRevision:planned.calendarRevision,calendarApplication:planned.calendarApplication};
 }
