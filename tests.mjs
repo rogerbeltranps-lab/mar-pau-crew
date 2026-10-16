@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault} from './domain.mjs';
+import {excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn} from './domain.mjs';
 assert.equal(excelDate('46279.0'),'2026-09-14');
 assert.equal(excelDate('19/09/2026'),'2026-09-19');
 assert.equal(excelDate('46063.0'),'2026-02-10');
@@ -45,3 +45,12 @@ const reply=structuredClone(defaults[0]);reply.turns[0].confirmation='no';assert
 const paid=structuredClone(defaults[0]);paid.paid=5;assert.equal(untouchedDefault(paid),false);
 assert.deepEqual(missingDefaultDays([],'2027-06-23','2027-06-22'),[]);
 console.log('Horari automàtic: dies existents, caps de setmana i canvis preservats OK');
+
+const annaCannotCome={id:'afternoon',start:'17:15',end:'19:15',status:'unavailable',attendance:'pending',confirmation:'no'};
+const annaNowComes=mergeOwnerTurn({...annaCannotCome,status:'planned'},annaCannotCome);
+assert.equal(annaNowComes.status,'planned');
+assert.equal(annaNowComes.confirmation,'pending'); // Roger's new plan clears the obsolete unavailability alert.
+assert.equal(mergeOwnerTurn({...annaNowComes,confirmation:'no'}, {...annaCannotCome,status:'planned'}).confirmation,'pending'); // Repair a previously saved inconsistent planned/no turn.
+assert.equal(mergeOwnerTurn({...annaCannotCome,status:'not-needed'},annaCannotCome).confirmation,'no'); // Other statuses do not silently change Anna's alert.
+assert.equal(mergeOwnerTurn({...annaNowComes}, {...annaNowComes,confirmation:'yes'}).confirmation,'yes');
+console.log('Canviar de «No pot venir» a «Ve» neteja avisos obsolets: OK');
