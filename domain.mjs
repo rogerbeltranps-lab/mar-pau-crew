@@ -32,6 +32,10 @@ export function missingDefaultDays(existing,from,to){
  }
  return result;
 }
+export function mergeOwnerTurn(turn,previous){
+ const confirmation=turn.status==='planned'&&previous?.confirmation==='no'?'pending':previous?.confirmation||'pending';
+ return {...turn,confirmation};
+}
 export function untouchedDefault(day){
  return day?.automatic===true&&!day.notes?.trim()&&!day.annaNotes?.trim()
   &&cents(day.paid)===0&&!(day.payments||[]).length
