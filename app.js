@@ -6,7 +6,9 @@ const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g
 const money=n=>new Intl.NumberFormat('ca-ES',{style:'currency',currency:'EUR'}).format(n), labels={morning:'Matí',afternoon:'Tarda'};
 let db,auth,api,authApi,user,role,days=new Map(),month=new Date(),selected='',view='calendar',unsubscribe,infoUnsubscribe,schedule=new Map(),informationReady=false,daysReady=false,calendarSyncRunning=false,imported=[],saving=false,initialCalendarPositioned=false;
 const notice=s=>{$('toast').textContent=s;$('toast').hidden=false;clearTimeout(notice.timer);notice.timer=setTimeout(()=>$('toast').hidden=true,6500);};
-const fail=e=>notice(e.code==='permission-denied'?'Aquest compte no té permís. Revisa els membres i les regles de Firebase.':e.code?.startsWith('auth/')?'No s’ha pogut entrar. Comprova el correu, la contrasenya i la configuració d’accés.':e.message||'No s’ha pogut desar. Torna-ho a provar.');
+const errorText=e=>e.code==='permission-denied'?'Aquest compte no té permís. Revisa els membres i les regles de Firebase.':e.code?.startsWith('auth/')?'No s’ha pogut entrar. Comprova el correu, la contrasenya i la configuració d’accés.':e.message||'No s’ha pogut desar. Torna-ho a provar.';
+const fail=e=>notice(errorText(e));
+function daySaveError(e){const alert=$('day-error');alert.textContent=errorText(e);alert.hidden=false;alert.scrollIntoView({behavior:'smooth',block:'start'});}
 
 function turnDescription(t){
  if(!t)return 'Sense torn';
@@ -45,7 +47,7 @@ function positionCalendarOnOpen(){
  initialCalendarPositioned=true;
  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top:document.querySelector('main').offsetTop,behavior:'auto'})));
 }
-async function busy(action){if(saving)return;saving=true;document.querySelectorAll('dialog button,#import-confirm,#weekly-pay-button,#closure-save,#closure-list button').forEach(b=>b.disabled=true);try{online();await action();}catch(e){fail(e);}finally{saving=false;document.querySelectorAll('dialog button,#import-confirm,#weekly-pay-button,#closure-save,#closure-list button').forEach(b=>b.disabled=false);}}
+async function busy(action,onError=fail){if(saving)return;saving=true;document.querySelectorAll('dialog button,#import-confirm,#weekly-pay-button,#closure-save,#closure-list button').forEach(b=>b.disabled=true);try{online();await action();}catch(e){onError(e);}finally{saving=false;document.querySelectorAll('dialog button,#import-confirm,#weekly-pay-button,#closure-save,#closure-list button').forEach(b=>b.disabled=false);}}
 function render(){
  $('month-title').textContent=month.toLocaleDateString('ca-ES',{month:'long',year:'numeric'});const year=month.getFullYear(),m=month.getMonth(),count=new Date(year,m+1,0).getDate(),offset=(new Date(year,m,1).getDay()+6)%7;
  let html=['Dl','Dt','Dc','Dj','Dv','Ds','Dg'].map(s=>`<div class="weekday">${s}</div>`).join('')+'<div></div>'.repeat(offset);
@@ -200,10 +202,10 @@ async function payWeek(){await busy(async()=>{
   }
  });const notified=!notificationDate||await reportChange('payment',notificationDate,'Pagament conjunt: '+money(amount)+' el '+date+' (període '+from+' – '+to+')');notice(notified?'Pagament conjunt desat.':'Pagament desat, però l’avís per correu encara no està activat.');
 });}
-function openDay(date){selected=date;const day=agendaDay(days,schedule,date)||defaultDay(date),owner=role==='owner';$('day-title').textContent=new Date(date+'T12:00:00').toLocaleDateString('ca-ES',{weekday:'long',day:'numeric',month:'long'});$('day-summary').textContent=days.has(date)?'Horari guardat. Pots ajustar l’entrada i la sortida; es recalcularà l’import.':'Dia nou: horari habitual proposat.';
+function openDay(date){selected=date;$('day-error').hidden=true;const day=agendaDay(days,schedule,date)||defaultDay(date),owner=role==='owner';$('day-title').textContent=new Date(date+'T12:00:00').toLocaleDateString('ca-ES',{weekday:'long',day:'numeric',month:'long'});$('day-summary').textContent=days.has(date)?'Horari guardat. Pots ajustar l’entrada i la sortida; es recalcularà l’import.':'Dia nou: horari habitual proposat.';
  const defaults=defaultDay(date).turns;
  const base=['morning','afternoon'].map(id=>day.turns.find(t=>t.id===id)||(()=>{const habitual=defaults.find(t=>t.id===id);return habitual?{...habitual,status:'none'}:{id,start:'',end:'',status:'none',attendance:'pending',confirmation:'pending'};})());
- $('turns').innerHTML=base.map(t=>`<div class="turn" data-turn="${t.id}"><h3>${labels[t.id]}</h3><label>Previsió<select data-field="status"><option value="none">Sense torn</option><option value="planned">Ve a l’horari indicat</option><option value="not-needed">No cal venir</option><option value="unavailable">Ana no pot venir</option></select></label><div class="times"><label>Entrada<input type="time" data-field="start" value="${esc(t.start)}" ${owner?'':'disabled'}></label><label>Sortida<input type="time" data-field="end" value="${esc(t.end)}" ${owner?'':'disabled'}></label></div>${owner?'<label>Assistència (només Roger)<select data-field="attendance"><option value="pending">Pendent de confirmar</option><option value="yes">✓ Fet</option><option value="no">No ha vingut</option></select></label>':''}<label>Avís de l’Ana (opcional)<select data-field="confirmation"><option value="pending">Cap avís</option><option value="no">No pot venir</option><option value="yes" disabled>Confirmat anteriorment</option></select></label></div>`).join('');
+ $('turns').innerHTML=base.map(t=>`<div class="turn" data-turn="${t.id}"><h3>${labels[t.id]}</h3><label>Previsió<select data-field="status"><option value="none">Sense torn</option><option value="planned">Previst — ve a l’horari indicat</option><option value="not-needed">No cal venir</option><option value="unavailable">Ana no pot venir</option></select></label><div class="times"><label>Entrada<input type="time" data-field="start" value="${esc(t.start)}" ${owner?'':'disabled'}></label><label>Sortida<input type="time" data-field="end" value="${esc(t.end)}" ${owner?'':'disabled'}></label></div>${owner?'<label>Assistència (només Roger)<select data-field="attendance"><option value="pending">Pendent de confirmar</option><option value="yes">✓ Fet</option><option value="no">No ha vingut</option></select></label>':''}<label>Avís de l’Ana (opcional)<select data-field="confirmation"><option value="pending">Cap avís</option><option value="no">No pot venir</option><option value="yes" disabled>Confirmat anteriorment</option></select></label></div>`).join('');
  document.querySelectorAll('[data-turn]').forEach((el,i)=>{
   const t=base[i],statusEl=el.querySelector('[data-field="status"]'),attendanceEl=el.querySelector('[data-field="attendance"]');
   statusEl.value=t.status;el.querySelector('[data-field="confirmation"]').value=t.confirmation||'pending';
@@ -222,14 +224,14 @@ function openDay(date){selected=date;const day=agendaDay(days,schedule,date)||de
  $('day-summary').textContent=day.closure?'No cal venir: '+day.closure.reason:anaWarning(day)||$('day-summary').textContent;
  $('rate').value=day.rate;$('rate').disabled=!owner;$('notes').value=day.notes||'';$('notes').readOnly=!owner;$('anna-notes').value=day.annaNotes||'';$('anna-notes').readOnly=owner;$('pay-section').hidden=!owner;$('pay-amount').value='';$('pay-date').value=localDate();const t=totals(day);$('pay-summary').textContent=`Generat ${money(t.earned)} · Pagat ${money(t.paid)} · Pendent ${money(t.pending)}`;$('pay-history').innerHTML=(day.payments||[]).map(p=>`<p class="muted">${esc(p.date||'Sense data')} · ${money(p.amount)} · ${esc(p.note||'')}</p>`).join('');if(!$('day-dialog').open)$('day-dialog').showModal();
 }
-async function saveDay(close=true){await busy(async()=>{
+async function saveDay(close=true){$('day-error').hidden=true;await busy(async()=>{
  const owner=role==='owner',turns=[];
  for(const el of document.querySelectorAll('[data-turn]')){
   const value=k=>el.querySelector(`[data-field="${k}"]`)?.value;
   const status=value('status');if(status==='none')continue;
   const t={id:el.dataset.turn,start:value('start'),end:value('end'),status,
    attendance:owner&&status==='planned'?value('attendance'):'pending',confirmation:value('confirmation')};
-  if(owner&&status==='planned'&&(!t.start||!t.end||hours(t)<=0))throw Error('Revisa l’entrada i la sortida dels torns.');
+  if(owner&&status==='planned'){const shift=labels[t.id]||'Torn';if(!t.start)throw Error(shift+': falta l’hora d’entrada.');if(!t.end)throw Error(shift+': falta l’hora de sortida.');if(hours(t)<=0)throw Error(shift+': la sortida ha de ser posterior a l’entrada.');}
   turns.push(t);
  }
  const rate=Number($('rate').value);
@@ -256,7 +258,7 @@ async function saveDay(close=true){await busy(async()=>{
  const notified=!summary||await reportChange('day',selected,summary);
  if(close)$('day-dialog').close();
  notice(!notified?'Canvis desats, però l’avís per correu encara no està activat.':role==='anna'?'Avís desat i compartit amb la família.':'Canvis desats i compartits.');
-});}
+},daySaveError);}
 async function pay(){await busy(async()=>{const amount=cents($('pay-amount').value),date=$('pay-date').value;if(amount<=0||!date)throw Error('Indica un import positiu i una data.');const payment={amount,date,note:'Pagament registrat',id:crypto.randomUUID()};await api.runTransaction(db,async tx=>{const ref=api.doc(db,'days',selected),snap=await tx.get(ref);if(!snap.exists())throw Error('Desa primer el dia i els horaris abans de registrar el pagament.');const d=snap.data(),pending=totals(d).pending;if(amount>pending)throw Error(`L’import supera el pendent (${money(pending)}).`);tx.update(ref,{paid:cents(d.paid+amount),payments:[...(d.payments||[]),payment],updatedBy:user.uid,updatedAt:api.serverTimestamp()});});const notified=await reportChange('payment',selected,'Pagament registrat: '+money(amount)+' el '+date);$('day-dialog').close();notice(notified?'Pagament registrat.':'Pagament registrat, però l’avís per correu encara no està activat.');});}
 async function start(config){
  try{const base='https://www.gstatic.com/firebasejs/12.19.0/';const [app,a,f]=await Promise.all([import(base+'firebase-app.js'),import(base+'firebase-auth.js'),import(base+'firebase-firestore.js')]);authApi=a;api=f;const instance=app.initializeApp(config);db=f.getFirestore(instance);auth=a.getAuth(instance);$('connect').hidden=true;
@@ -270,7 +272,7 @@ $('theme-toggle').onclick=()=>cycleTheme();applyTheme();
 $('logout').onclick=()=>{authApi.signOut(auth);$('day-dialog').close();};
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.dataset.view;$('month-navigation').hidden=view==='vacations';for(const v of ['calendar','payments','information','vacations','settings'])$(v+'-view').hidden=v!==view;document.querySelectorAll('[data-view]').forEach(el=>el.classList.toggle('active',el===b));});
 $('prev').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()-1,1);render();};$('next').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()+1,1);render();};$('today').onclick=()=>{month=new Date();render();openDay(localDate());};
-document.addEventListener('click',e=>{const b=e.target.closest('[data-date]');if(b)openDay(b.dataset.date);const reopen=e.target.closest('[data-reopen]');if(reopen)reopenPeriod(reopen.dataset.reopen);});$('close-dialog').onclick=()=>$('day-dialog').close();$('day-form').onsubmit=e=>{e.preventDefault();saveDay();};$('pay-button').onclick=pay;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-date]');if(b)openDay(b.dataset.date);const reopen=e.target.closest('[data-reopen]');if(reopen)reopenPeriod(reopen.dataset.reopen);});$('close-dialog').onclick=()=>$('day-dialog').close();$('day-form').onsubmit=e=>{e.preventDefault();saveDay();};$('day-form').addEventListener('input',()=>{$('day-error').hidden=true;});$('pay-button').onclick=pay;
 const period=fridayPeriod();$('week-from').value=period.from;$('week-to').value=period.to;$('week-date').value=period.to;
 $('week-from').onchange=renderWeeklyPayments;$('week-to').onchange=renderWeeklyPayments;$('weekly-pay-form').onsubmit=e=>{e.preventDefault();payWeek();};
 $('import').onchange=async()=>{imported=[];$('import-confirm').hidden=true;$('import-preview').textContent='';try{const file=$('import').files[0];if(!file)return;imported=await readExcel(file);const s=imported.reduce((s,d)=>{const t=totals(d);s.hours+=t.hours;s.paid=cents(s.paid+t.paid);return s;},{hours:0,paid:0});const done=imported.filter(d=>d.turns.some(t=>t.attendance==='yes')).length;$('import-preview').textContent=`${imported.length} dies · ${done} amb assistència · ${s.hours.toLocaleString('ca-ES')} h · ${money(s.paid)} pagats. Es conservaran les dates i les notes originals. ${imported.information?.sections.length?'També s’incorporarà Información para Ana.':''} Revisa aquestes dades abans d’importar.`;$('import-confirm').hidden=false;}catch(e){fail(e);}};
