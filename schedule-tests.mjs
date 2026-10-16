@@ -51,3 +51,8 @@ assert.equal(closeDay(defaultDay('2027-02-06'),vacation).turns.length,0);
 assert.deepEqual(confirmedRows([['2027-02-02','08:15–09:00','17:15–19:15','Matí confirmat']])[0].cells,info.sections[0].rows[1].cells);
 assert.throws(()=>confirmedRows([['2027-02-02','<script>','—','Dia confirmat']]));
 console.log('Vacances: període sencer, caps de setmana, solapaments, restauració i sincronització preservats OK');
+
+const confirmedComing={...defaultDay('2027-02-02'),automatic:false};
+confirmedComing.turns[0].status='coming';
+confirmedComing.turns[0].start='08:15';confirmedComing.turns[0].end='09:00';
+assert.equal(reconcileSchedule(confirmedComing,schedule.get(confirmedComing.date),'2027-02-01').turns[0].status,'coming');
