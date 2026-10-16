@@ -11,6 +11,8 @@ const days=[{date:'2026-09-28',rate:10,paid:12.5,notes:'=test',turns:[{id:'morni
 for(const day of days)assert.deepEqual(JSON.parse(JSON.stringify(context.crewTotals(day,'2026-10-04'))),totals(day,'2026-10-04'));
 assert.equal(context.crewTotals(days[2],'2027-01-02').earned,0); // Pending hours are not billable.
 assert.equal(typeof context.notifyCrew,'function');
+const coming={...days[0],turns:[{...days[0].turns[0],status:'coming'}]};
+assert.deepEqual(JSON.parse(JSON.stringify(context.crewTotals(coming,'2026-10-04'))),totals(coming,'2026-10-04'));
 const output=context.crewOutput(days,'2026-10-04');
 assert.equal(output.payments.length,1);assert.equal(output.payments[0][1],17.5);
 assert.equal(output.register[0][8],'💶 Pagat');assert.equal(output.register[1][8],'Pendent');
