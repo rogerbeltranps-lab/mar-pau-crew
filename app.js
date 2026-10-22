@@ -244,6 +244,7 @@ function enhanceTurnSelect(select){
  const sync=()=>{
   const value=select.selectedOptions[0]?.textContent||'Selecciona una opció';
   trigger.textContent=value;readOnly.textContent=value;
+  trigger.setAttribute('aria-label',(label.firstChild?.textContent?.trim()||'Opció')+': '+value);
   trigger.hidden=select.disabled;readOnly.hidden=!select.disabled;
   const inactiveTurn=select.dataset.field==='attendance'&&!isScheduledStatus(select.closest('[data-turn]').querySelector('[data-field="status"]').value);
   hint.hidden=select.disabled||!inactiveTurn;
@@ -290,6 +291,7 @@ function openDay(date){selected=date;$('day-error').hidden=true;const day=agenda
    };
   }else{statusEl.disabled=true;el.querySelector('[data-field="confirmation"]').onchange=()=>saveDay(false);}
   el.querySelectorAll('select[data-field]').forEach(enhanceTurnSelect);
+  statusEl.addEventListener('change',()=>syncTurnChoices(el));
   syncTurnChoices(el);
  });
  $('day-summary').textContent=day.closure?'No cal venir: '+day.closure.reason:anaWarning(day)||$('day-summary').textContent;
