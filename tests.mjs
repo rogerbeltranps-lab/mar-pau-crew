@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn,isScheduledStatus,isWorkedTurn} from './domain.mjs';
+import {cents,excelDate,excelTime,defaultDay,totals,importRows,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn,isScheduledStatus,isWorkedTurn} from './domain.mjs';
+assert.equal(cents("72,50"),72.5);assert.equal(cents("72.50"),72.5);assert.equal(cents(" 1,5 "),1.5);
 assert.equal(excelDate('46279.0'),'2026-09-14');
 assert.equal(excelDate('19/09/2026'),'2026-09-19');
 assert.equal(excelDate('46063.0'),'2026-02-10');

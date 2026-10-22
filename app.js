@@ -1,5 +1,5 @@
 import {firebaseConfig} from './firebase-config.js';
-import {cents,localDate,defaultDay,totals,hours,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn,isScheduledStatus,isWorkedTurn} from './domain.mjs?v=16';
+import {num,cents,localDate,defaultDay,totals,hours,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn,isScheduledStatus,isWorkedTurn} from './domain.mjs?v=17';
 import {scheduleFromInformation,reconcileSchedule,agendaDay,agendaDays,periodDates,closeDay,reopenDay,confirmedRows} from './schedule.mjs?v=16';
 import {readExcel} from './excel.js';
 import {mountNotifications} from './notifications.mjs?v=1';
@@ -307,7 +307,7 @@ async function saveDay(close=true){$('day-error').hidden=true;await busy(async()
   if(owner&&isScheduledStatus(status)){const shift=labels[t.id]||'Torn';if(!t.start)throw Error(shift+': falta l’hora d’entrada.');if(!t.end)throw Error(shift+': falta l’hora de sortida.');if(hours(t)<=0)throw Error(shift+': la sortida ha de ser posterior a l’entrada.');}
   turns.push(t);
  }
- const rate=Number($('rate').value);
+ const rate=num($('rate').value);
  if(owner&&(!Number.isFinite(rate)||rate<0||rate>1000))throw Error('Revisa la tarifa.');
  let summary='';
  await api.runTransaction(db,async tx=>{

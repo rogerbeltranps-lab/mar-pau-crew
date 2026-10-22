@@ -2,7 +2,8 @@ export const isScheduledStatus=status=>status==='planned'||status==='coming';
 // A confirmed "Ve" on today or a past day is worked even for older records saved as pending.
 export const isWorkedTurn=(turn,date,today=localDate())=>isScheduledStatus(turn.status)&&date<=today
  && (turn.attendance==='yes'||(turn.status==='coming'&&turn.attendance!=='no'&&turn.confirmation!=='no'));
-export const cents=n=>Math.round((Number(n)||0)*100)/100;
+export const num=v=>Number(String(v??"").trim().replace(",","."));
+export const cents=n=>Math.round((num(n)||0)*100)/100;
 export function isAgendaDay(day,id=day?.date){return !!day&&/^\d{4}-\d{2}-\d{2}$/.test(day.date)&&day.date===id&&Array.isArray(day.turns);}
 export function localDate(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 export function excelDate(v){if(v===''||v==null)return '';if(/^\d+(\.\d+)?$/.test(String(v)))return new Date(Date.UTC(1899,11,30)+Number(v)*86400000).toISOString().slice(0,10);const m=String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:String(v);}
