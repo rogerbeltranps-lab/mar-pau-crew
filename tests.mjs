@@ -73,3 +73,9 @@ comingDay.turns[0].confirmation='no';
 assert.equal(totals(comingDay,'2026-10-15').earned,0); // Ana's no-show warning must not bill.
 assert.equal(mergeOwnerTurn({...annaCannotCome,status:'coming'},annaCannotCome).confirmation,'pending');
 console.log('Previst i Ve separats, confirmació manual i cobrament: OK');
+
+// A manual "Fet" on the day must remain a worked turn and count for payment.
+const oct22manual=defaultDay('2026-10-22');
+oct22manual.turns[0]=mergeOwnerTurn({...oct22manual.turns[0],attendance:'yes'},oct22manual.turns[0]);
+assert.equal(isWorkedTurn(oct22manual.turns[0],'2026-10-22','2026-10-22'),true);
+assert.equal(totals(oct22manual,'2026-10-22').earned,10);

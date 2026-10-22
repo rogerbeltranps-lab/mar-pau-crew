@@ -46,7 +46,7 @@
     location.replace(url.href);
   });
 
-  const appUrl = new URL('app.js?v=29', location.href);
+  const appUrl = new URL('app.js?v=30', location.href);
   if (refresh) appUrl.searchParams.set('refresh', refresh);
   const script = document.createElement('script');
   script.type = 'module';

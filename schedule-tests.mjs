@@ -56,3 +56,14 @@ const confirmedComing={...defaultDay('2027-02-02'),automatic:false};
 confirmedComing.turns[0].status='coming';
 confirmedComing.turns[0].start='08:15';confirmedComing.turns[0].end='09:00';
 assert.equal(reconcileSchedule(confirmedComing,schedule.get(confirmedComing.date),'2027-02-01').turns[0].status,'coming');
+
+// Regression 22 Oct 2026: an explicitly recorded "Fet" may not revert to "Prevista".
+const oct22=defaultDay('2026-10-22');oct22.automatic=false;
+oct22.turns[0].attendance='yes';
+const refreshed={...defaultDay('2026-10-22'),automatic:true,
+ calendarApplication:'Dia confirmat',calendarRevision:'confirmed-newer'};
+assert.equal(reconcileSchedule(oct22,refreshed,'2026-10-22'),oct22);
+assert.equal(totals(reconcileSchedule(oct22,refreshed,'2026-10-22'),'2026-10-22').earned,10);
+const autoOct22={...defaultDay('2026-10-22'),automatic:true};
+assert.notEqual(reconcileSchedule(autoOct22,refreshed,'2026-10-22'),autoOct22);
+console.log('22 octubre: Fet manual preservat davant sincronitzacions posteriors: OK');

@@ -1,6 +1,6 @@
 import {firebaseConfig} from './firebase-config.js';
 import {cents,localDate,defaultDay,totals,hours,fridayPeriod,allocatePayment,isAgendaDay,missingDefaultDays,untouchedDefault,mergeOwnerTurn,isScheduledStatus,isWorkedTurn} from './domain.mjs?v=16';
-import {scheduleFromInformation,reconcileSchedule,agendaDay,agendaDays,periodDates,closeDay,reopenDay,confirmedRows} from './schedule.mjs?v=15';
+import {scheduleFromInformation,reconcileSchedule,agendaDay,agendaDays,periodDates,closeDay,reopenDay,confirmedRows} from './schedule.mjs?v=16';
 import {readExcel} from './excel.js';
 import {mountNotifications} from './notifications.mjs?v=1';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -226,7 +226,7 @@ function openDay(date){selected=date;$('day-error').hidden=true;const day=agenda
  $('rate').value=day.rate;$('rate').disabled=!owner;$('notes').value=day.notes||'';$('notes').readOnly=!owner;$('anna-notes').value=day.annaNotes||'';$('anna-notes').readOnly=owner;$('pay-section').hidden=!owner;$('pay-amount').value='';$('pay-date').value=localDate();const t=totals(day);$('pay-summary').textContent=`Generat ${money(t.earned)} · Pagat ${money(t.paid)} · Pendent ${money(t.pending)}`;$('pay-history').innerHTML=(day.payments||[]).map(p=>`<p class="muted">${esc(p.date||'Sense data')} · ${money(p.amount)} · ${esc(p.note||'')}</p>`).join('');if(!$('day-dialog').open)$('day-dialog').showModal();
 }
 async function saveDay(close=true){$('day-error').hidden=true;await busy(async()=>{
- const owner=role==='owner',turns=[];
+ const owner=role==='owner',turns=[];let expected=null,written=false;
  for(const el of document.querySelectorAll('[data-turn]')){
   const value=k=>el.querySelector(`[data-field="${k}"]`)?.value;
   const status=value('status');if(status==='none')continue;
@@ -254,8 +254,24 @@ async function saveDay(close=true){$('day-error').hidden=true;await busy(async()
    })};
   }
   summary=summarizeDayChange(current,next);
-  if(summary||!snap.exists()||owner&&current.automatic!==false)tx.set(ref,{...next,updatedBy:user.uid,updatedAt:api.serverTimestamp()});
+  if(summary||!snap.exists()||owner&&current.automatic!==false){
+   expected=next;written=true;
+   tx.set(ref,{...next,updatedBy:user.uid,updatedAt:api.serverTimestamp()});
+  }
  });
+ if(!written){if(close)$('day-dialog').close();notice('No s’han detectat canvis per desar.');return;}
+ // A committed transaction is not enough: read the authoritative record before claiming success.
+ const serverSnap=await api.getDocFromServer(api.doc(db,'days',selected));
+ if(!serverSnap.exists())throw Error('No es pot confirmar que el dia s’hagi desat al servidor.');
+ const stored=serverSnap.data(),fields=owner?['id','start','end','status','attendance']:['id','status','confirmation'];
+ const comparable=rows=>(rows||[]).map(t=>fields.map(k=>t[k]??null));
+ if(JSON.stringify(comparable(stored.turns))!==JSON.stringify(comparable(expected.turns))
+  ||(owner&&(stored.rate!==expected.rate||stored.notes!==expected.notes))
+  ||(!owner&&stored.annaNotes!==expected.annaNotes)){
+  days.set(selected,stored);render();
+  throw Error('L’estat guardat al servidor no coincideix amb el canvi. Revisa el dia i torna-ho a provar.');
+ }
+ days.set(selected,stored);render();
  const notified=!summary||await reportChange('day',selected,summary);
  if(close)$('day-dialog').close();
  notice(!notified?'Canvis desats, però la notificació no s’ha pogut registrar.':role==='anna'?'Avís desat i compartit amb la família.':'Canvis desats i compartits.');

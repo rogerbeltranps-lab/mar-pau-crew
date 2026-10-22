@@ -23,6 +23,8 @@ export function reconcileSchedule(current,planned,today=localDate()){
  if(!planned)return current;
  if(!current)return planned;
  if(current.closure?.id)return current;
+ // Manual changes for today or earlier must never be reverted by a refreshed confirmed calendar.
+ if(current.automatic===false&&current.date<=today)return current;
  if(current.calendarRevision===planned.calendarRevision)return current;
  const confirmed=planned.calendarApplication==='Dia confirmat'||planned.calendarApplication==='Matí confirmat';
  const imported=current.source&&current.automatic!==false&&!current.annaNotes?.trim()
