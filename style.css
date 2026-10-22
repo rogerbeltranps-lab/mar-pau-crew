@@ -71,3 +71,20 @@ header h1{margin:0}
 [data-theme=dark] .menu-sections button.active{background:#25483a;color:#b7e5d5}
 [data-theme=dark] #logout{background:transparent;color:#e3ece6}
 @media(max-width:540px){header{gap:10px;padding-top:calc(20px + env(safe-area-inset-top,0px));padding-left:16px;padding-right:16px}header h1{font-size:clamp(1.15rem,5vw,1.5rem)}.app-menu summary{padding:9px 12px}}
+
+/* Touch-friendly shift choices inside the iPhone day modal. */
+.turn label:has(> select[data-field]){margin-bottom:6px}
+.turn-choice{margin:0 0 18px}
+.turn-choice-trigger{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:50px;padding:12px 14px;text-align:left;background:transparent;border:1px solid #bfcfc4;color:#243c37;font-weight:600;border-radius:12px}
+.turn-choice-trigger::after{content:'⌄';font-size:1.35rem;line-height:1;color:#60756d;flex-shrink:0}
+.turn-choice-panel{padding:6px;margin-top:6px;border:1px solid var(--line);border-radius:12px;background:white;display:grid;gap:3px}
+.turn-choice-option{display:block;width:100%;min-height:44px;border:0;background:transparent;padding:10px 12px;text-align:left;border-radius:8px;color:#243c37;font-weight:500}
+.turn-choice-option.selected{background:#e5f0e8;color:#1d5144;font-weight:700}
+.turn-choice-readonly{margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#f4f7f4;color:#60756d;font-size:1rem}
+.turn-choice-hint{margin:7px 0 0;font-size:.78rem;line-height:1.4;color:#60756d}
+[data-theme=dark] .turn-choice-trigger{background:#182822;color:#e3ece6;border-color:#3b5148}
+[data-theme=dark] .turn-choice-panel{background:#182822;border-color:#3b5148}
+[data-theme=dark] .turn-choice-option{color:#e3ece6}
+[data-theme=dark] .turn-choice-option.selected{background:#25483a;color:#b7e5d5}
+[data-theme=dark] .turn-choice-readonly{background:#21382f;color:#97aea4;border-color:#3b5148}
+[data-theme=dark] .turn-choice-hint{color:#97aea4}

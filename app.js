@@ -203,6 +203,64 @@ async function payWeek(){await busy(async()=>{
   }
  });const notified=!notificationDate||await reportChange('payment',notificationDate,'Pagament conjunt: '+money(amount)+' el '+date+' (període '+from+' – '+to+')');notice(notified?'Pagament conjunt desat.':'Pagament desat, però la notificació no s’ha pogut registrar.');
 });}
+
+function closeTurnChoiceMenus(){
+ $('day-dialog').querySelectorAll('.turn-choice').forEach(group=>{
+  const panel=group.querySelector('.turn-choice-panel'),trigger=group.querySelector('.turn-choice-trigger');
+  panel.hidden=true;trigger.setAttribute('aria-expanded','false');
+ });
+}
+// Use touch-friendly buttons instead of native iOS selects within a scrolling modal.
+function enhanceTurnSelect(select){
+ const label=select.closest('label');
+ if(!label)return;
+ const group=document.createElement('div');group.className='turn-choice';
+ const trigger=document.createElement('button');trigger.type='button';trigger.className='turn-choice-trigger';
+ trigger.setAttribute('aria-expanded','false');trigger.setAttribute('aria-haspopup','true');
+ const panel=document.createElement('div');panel.className='turn-choice-panel';panel.hidden=true;
+ panel.setAttribute('role','group');panel.setAttribute('aria-label',label.firstChild?.textContent?.trim()||'Opcions');
+ const readOnly=document.createElement('p');readOnly.className='turn-choice-readonly';readOnly.hidden=true;
+ const hint=document.createElement('p');hint.className='turn-choice-hint';hint.hidden=true;
+ if(select.dataset.field==='attendance')hint.textContent='Si no hi havia torn, en marcar «Fet» o «No ha vingut» es crearà un torn. Caldrà indicar les hores.';
+ group.append(trigger,panel,readOnly,hint);
+ label.insertAdjacentElement('afterend',group);
+ select.hidden=true;select.tabIndex=-1;select.setAttribute('aria-hidden','true');
+ for(const opt of select.options){
+  if(opt.disabled)continue;
+  const item=document.createElement('button');item.type='button';item.className='turn-choice-option';
+  item.textContent=opt.textContent;item.dataset.value=opt.value;
+  item.addEventListener('click',()=>{
+   select.value=opt.value;
+   select.dispatchEvent(new Event('change',{bubbles:true}));
+   closeTurnChoiceMenus();
+  });
+  panel.append(item);
+ }
+ trigger.addEventListener('click',()=>{
+  const shouldOpen=panel.hidden;
+  closeTurnChoiceMenus();
+  if(shouldOpen){panel.hidden=false;trigger.setAttribute('aria-expanded','true');}
+ });
+ const sync=()=>{
+  const value=select.selectedOptions[0]?.textContent||'Selecciona una opció';
+  trigger.textContent=value;readOnly.textContent=value;
+  trigger.hidden=select.disabled;readOnly.hidden=!select.disabled;
+  const inactiveTurn=select.dataset.field==='attendance'&&!isScheduledStatus(select.closest('[data-turn]').querySelector('[data-field="status"]').value);
+  hint.hidden=select.disabled||!inactiveTurn;
+  if(select.disabled){panel.hidden=true;trigger.setAttribute('aria-expanded','false');}
+  panel.querySelectorAll('.turn-choice-option').forEach(item=>{
+   const chosen=item.dataset.value===select.value;
+   item.classList.toggle('selected',chosen);item.setAttribute('aria-pressed',String(chosen));
+  });
+ };
+ select.turnChoiceSync=sync;
+ select.addEventListener('change',sync);
+ sync();
+}
+function syncTurnChoices(el){
+ el.querySelectorAll('select[data-field]').forEach(s=>s.turnChoiceSync?.());
+}
+
 function openDay(date){selected=date;$('day-error').hidden=true;const day=agendaDay(days,schedule,date)||defaultDay(date),owner=role==='owner';$('day-title').textContent=new Date(date+'T12:00:00').toLocaleDateString('ca-ES',{weekday:'long',day:'numeric',month:'long'});$('day-summary').textContent=days.has(date)?'Horari guardat. Pots ajustar l’entrada i la sortida; es recalcularà l’import.':'Dia nou: horari habitual proposat.';
  const defaults=defaultDay(date).turns;
  const base=['morning','afternoon'].map(id=>day.turns.find(t=>t.id===id)||(()=>{const habitual=defaults.find(t=>t.id===id);return habitual?{...habitual,status:'none'}:{id,start:'',end:'',status:'none',attendance:'pending',confirmation:'pending'};})());
@@ -210,17 +268,29 @@ function openDay(date){selected=date;$('day-error').hidden=true;const day=agenda
  document.querySelectorAll('[data-turn]').forEach((el,i)=>{
   const t=base[i],statusEl=el.querySelector('[data-field="status"]'),attendanceEl=el.querySelector('[data-field="attendance"]');
   statusEl.value=t.status;el.querySelector('[data-field="confirmation"]').value=t.confirmation||'pending';
-  if(attendanceEl){attendanceEl.value=isWorkedTurn(t,date)?'yes':t.attendance||'pending';attendanceEl.disabled=!isScheduledStatus(t.status);}
+  if(attendanceEl){attendanceEl.value=isWorkedTurn(t,date)?'yes':t.attendance||'pending';attendanceEl.disabled=false;}
   el.querySelector('[data-field="confirmation"]').disabled=owner||t.status==='none'||t.status==='not-needed';
   if(owner){
    statusEl.onchange=()=>{
-    if(attendanceEl){attendanceEl.disabled=!isScheduledStatus(statusEl.value);attendanceEl.value=statusEl.value==='coming'&&selected<=localDate()?'yes':'pending';}
+    if(attendanceEl)attendanceEl.value=statusEl.value==='coming'&&selected<=localDate()?'yes':'pending';
     if(!isScheduledStatus(statusEl.value))return;
     const habitual=defaults.find(x=>x.id===el.dataset.turn);if(!habitual)return;
     const start=el.querySelector('[data-field="start"]'),end=el.querySelector('[data-field="end"]');
     if(!start.value)start.value=habitual.start;if(!end.value)end.value=habitual.end;
    };
+   if(attendanceEl)attendanceEl.onchange=()=>{
+    if(attendanceEl.value==='pending'||isScheduledStatus(statusEl.value))return;
+    const chosen=attendanceEl.value;
+    statusEl.value='planned';statusEl.dispatchEvent(new Event('change',{bubbles:true}));
+    attendanceEl.value=chosen;
+    const start=el.querySelector('[data-field="start"]'),end=el.querySelector('[data-field="end"]');
+    if(!start.value||!end.value){
+     $('day-summary').textContent='Torn nou: indica l’hora d’entrada i la de sortida abans de desar. El canvi no es guardarà fins que les hores siguin vàlides.';
+    }
+   };
   }else{statusEl.disabled=true;el.querySelector('[data-field="confirmation"]').onchange=()=>saveDay(false);}
+  el.querySelectorAll('select[data-field]').forEach(enhanceTurnSelect);
+  syncTurnChoices(el);
  });
  $('day-summary').textContent=day.closure?'No cal venir: '+day.closure.reason:anaWarning(day)||$('day-summary').textContent;
  $('rate').value=day.rate;$('rate').disabled=!owner;$('notes').value=day.notes||'';$('notes').readOnly=!owner;$('anna-notes').value=day.annaNotes||'';$('anna-notes').readOnly=owner;$('pay-section').hidden=!owner;$('pay-amount').value='';$('pay-date').value=localDate();const t=totals(day);$('pay-summary').textContent=`Generat ${money(t.earned)} · Pagat ${money(t.paid)} · Pendent ${money(t.pending)}`;$('pay-history').innerHTML=(day.payments||[]).map(p=>`<p class="muted">${esc(p.date||'Sense data')} · ${money(p.amount)} · ${esc(p.note||'')}</p>`).join('');if(!$('day-dialog').open)$('day-dialog').showModal();
@@ -299,7 +369,7 @@ showSection(view);
 document.addEventListener('click',e=>{if(!$('app-menu').contains(e.target))$('app-menu').open=false;});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('app-menu').open=false;});
 $('prev').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()-1,1);render();};$('next').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()+1,1);render();};$('today').onclick=()=>{month=new Date();render();openDay(localDate());};
-document.addEventListener('click',e=>{const b=e.target.closest('[data-date]');if(b)openDay(b.dataset.date);const reopen=e.target.closest('[data-reopen]');if(reopen)reopenPeriod(reopen.dataset.reopen);});$('close-dialog').onclick=()=>$('day-dialog').close();$('day-form').onsubmit=e=>{e.preventDefault();saveDay();};$('day-form').addEventListener('input',()=>{$('day-error').hidden=true;});$('pay-button').onclick=pay;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-date]');if(b)openDay(b.dataset.date);const reopen=e.target.closest('[data-reopen]');if(reopen)reopenPeriod(reopen.dataset.reopen);});$('close-dialog').onclick=()=>$('day-dialog').close();$('day-form').onsubmit=e=>{e.preventDefault();saveDay();};$('day-form').addEventListener('input',()=>{$('day-error').hidden=true;});$('day-dialog').addEventListener('click',e=>{if(!e.target.closest('.turn-choice'))closeTurnChoiceMenus();});$('pay-button').onclick=pay;
 const period=fridayPeriod();$('week-from').value=period.from;$('week-to').value=period.to;$('week-date').value=period.to;
 $('week-from').onchange=renderWeeklyPayments;$('week-to').onchange=renderWeeklyPayments;$('weekly-pay-form').onsubmit=e=>{e.preventDefault();payWeek();};
 $('import').onchange=async()=>{imported=[];$('import-confirm').hidden=true;$('import-preview').textContent='';try{const file=$('import').files[0];if(!file)return;imported=await readExcel(file);const s=imported.reduce((s,d)=>{const t=totals(d);s.hours+=t.hours;s.paid=cents(s.paid+t.paid);return s;},{hours:0,paid:0});const done=imported.filter(d=>d.turns.some(t=>t.attendance==='yes')).length;$('import-preview').textContent=`${imported.length} dies · ${done} amb assistència · ${s.hours.toLocaleString('ca-ES')} h · ${money(s.paid)} pagats. Es conservaran les dates i les notes originals. ${imported.information?.sections.length?'També s’incorporarà Información para Ana.':''} Revisa aquestes dades abans d’importar.`;$('import-confirm').hidden=false;}catch(e){fail(e);}};
