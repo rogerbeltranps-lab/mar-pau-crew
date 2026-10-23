@@ -211,10 +211,7 @@ function notifyCrew() {
           verified.set(first.actorUid,crewFields(member.fields||{}).role);
         }
         if(verified.get(first.actorUid)===role){
-          const name=role==='owner'?'Roger':'Anna';
-          const title=role==='owner'?'Canvis d’en Roger':'Avisos de l’Ana';
-          const body=group.map(e=>'Data: '+e.date+'\nTipus: '+({day:'Torns o missatges',payment:'Pagaments',vacation:'Vacances / horaris',schedule:'Calendari'}[e.kind]||'Canvi')+'\n'+e.summary).join('\n\n---\n\n');
-          MailApp.sendEmail({to:recipient,subject:"Mar & Pau's Crew — "+title+(group.length>1?' ('+group.length+')':''),body:name+' ha fet aquests canvis a l’app:\n\n'+body+'\n\nObre l’agenda per consultar-ne els detalls.'});
+          MailApp.sendEmail({to:recipient,subject:"Mar & Pau's Crew — Tens avisos nous",body:'Hi ha avisos nous a l’app. Entra a l’app per veure’ls:\nhttps://rogerbeltranps-lab.github.io/mar-pau-crew/'});
         }
       }
       const last=group[group.length-1];
